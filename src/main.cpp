@@ -130,7 +130,7 @@ void handleNewMessages(int numNewMessages) {
             preferences.end();
 
             if (mac != "") {
-                bot.answerCallbackQuery(bot.messages[i].id, "🚀 Sending...", false);
+                bot.answerCallbackQuery(bot.messages[i].query_id, "🚀 Sending...", false);
                 executeWoL(mac, "Bot Button", pcName);
             }
             continue;
