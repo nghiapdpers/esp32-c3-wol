@@ -7,110 +7,173 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
+#include <Preferences.h>
 #include "config.h"
 
-// MQTT
+// MQTT & WoL
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+WiFiUDP udp;
+WakeOnLan WOL(udp);
 
 // Telegram
 WiFiClientSecure secured_client;
 UniversalTelegramBot bot(bot_token, secured_client);
 unsigned long lastTimeBotRan;
 
-// WoL
-WiFiUDP udp;
-WakeOnLan WOL(udp);
+// Storage
+Preferences preferences;
 
 #define RESTART_INTERVAL 604800000 
 #define WDT_TIMEOUT 30 
 
-// --- Các hàm điều khiển LED ---
-void ledOn() { digitalWrite(LED_PIN, LOW); }  // LED Super Mini tích cực mức thấp
+void ledOn() { digitalWrite(LED_PIN, LOW); }
 void ledOff() { digitalWrite(LED_PIN, HIGH); }
+void blinkSuccess() { ledOff(); delay(200); ledOn(); }
+void blinkError() { for (int i = 0; i < 10; i++) { ledOff(); delay(50); ledOn(); delay(50); } }
 
-void blinkSuccess() {
-    ledOff(); delay(200); ledOn();
-}
-
-void blinkError() {
-    for (int i = 0; i < 10; i++) {
-        ledOff(); delay(50); ledOn(); delay(50);
-    }
-}
-
-void executeWoL(String mac, String source) {
+// --- Hàm thực thi WoL ---
+void executeWoL(String mac, String source, String pcName = "") {
+    String displayName = (pcName != "") ? pcName : mac;
+    
     if (mac.length() >= 17) {
         WOL.sendMagicPacket(mac.c_str());
-        mqttClient.publish(topic_status, ("WoL Sent: " + mac).c_str());
-        if (source == "Telegram") {
-            bot.sendMessage(chat_id, "✅ Done: " + mac, "");
-        }
+        
+        // Luôn báo về Telegram bất kể nguồn từ đâu
+        String msg = "🚀 *WoL Triggered*\n";
+        msg += "🖥 Device: `" + displayName + "`\n";
+        msg += "📡 Source: `" + source + "`\n";
+        msg += "✅ Status: Magic Packet Sent";
+        bot.sendMessage(chat_id, msg, "Markdown");
+        
         blinkSuccess();
     } else {
-        if (source == "Telegram") {
-            bot.sendMessage(chat_id, "❌ Error: Invalid MAC", "");
-        }
+        String msg = "❌ *WoL Failed*\n";
+        msg += "🖥 Device: `" + displayName + "`\n";
+        msg += "📡 Source: `" + source + "`\n";
+        msg += "⚠️ Reason: Invalid MAC Address";
+        bot.sendMessage(chat_id, msg, "Markdown");
+        
         blinkError();
     }
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-    String message = "";
-    for (int i = 0; i < length; i++) message += (char)payload[i];
-    if (String(topic) == topic_command) executeWoL(message, "MQTT");
+// --- Quản lý PC ---
+void savePC(String name, String mac) {
+    preferences.begin("wol", false);
+    preferences.putString(name.c_str(), mac);
+    String index = preferences.getString("index", "");
+    if (index.indexOf(name + "|") == -1) {
+        index += name + "|";
+        preferences.putString("index", index);
+    }
+    preferences.end();
 }
 
+void deletePC(String name) {
+    preferences.begin("wol", false);
+    preferences.remove(name.c_str());
+    String index = preferences.getString("index", "");
+    index.replace(name + "|", "");
+    preferences.putString("index", index);
+    preferences.end();
+}
+
+// --- Menu Nút Bấm ---
+void sendPCListMenu() {
+    preferences.begin("wol", true);
+    String index = preferences.getString("index", "");
+    preferences.end();
+
+    if (index == "") {
+        bot.sendMessage(chat_id, "⚠️ Danh sách máy trống!", "");
+        return;
+    }
+
+    String keyboardJson = "[";
+    int start = 0;
+    int end = index.indexOf('|');
+    bool first = true;
+
+    while (end != -1) {
+        String pcName = index.substring(start, end);
+        if (!first) keyboardJson += ",";
+        keyboardJson += "[{\"text\":\"🖥 " + pcName + "\", \"callback_data\":\"" + pcName + "\"}]";
+        start = end + 1;
+        end = index.indexOf('|', start);
+        first = false;
+    }
+    keyboardJson += "]";
+
+    bot.sendMessageWithInlineKeyboard(chat_id, "Chọn máy tính:", "Markdown", keyboardJson);
+}
+
+// --- Callback MQTT ---
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    String mac = "";
+    for (int i = 0; i < length; i++) mac += (char)payload[i];
+    if (String(topic) == topic_command) executeWoL(mac, "MQTT");
+}
+
+// --- Xử lý Telegram ---
 void handleNewMessages(int numNewMessages) {
     for (int i = 0; i < numNewMessages; i++) {
         String chat_id_incoming = String(bot.messages[i].chat_id);
         if (chat_id_incoming != chat_id) continue;
 
         String text = bot.messages[i].text;
-        if (text == "/start") {
-            bot.sendMessage(chat_id, "WOL System Online.", "");
-        } 
-        else if (text == "/mqtt") {
-            String info = "🌐 *MQTT Configuration*\n\n";
-            info += "📍 *Server:* `" + String(mqtt_server) + "`\n";
-            info += "🔌 *Port:* " + String(mqtt_port) + "\n";
-            info += "📥 *Command Topic:* `" + String(topic_command) + "`\n";
-            info += "📤 *Status Topic:* `" + String(topic_status) + "`\n\n";
-            info += "💡 _Dùng các thông số này để cấu hình App MQTT trên điện thoại._";
-            bot.sendMessage(chat_id, info, "Markdown");
-        }
-        else if (text.startsWith("/wake ")) {
-            executeWoL(text.substring(6), "Telegram");
-        }
-    }
-}
+        
+        if (bot.messages[i].type == "callback_query") {
+            String pcName = bot.messages[i].text;
+            preferences.begin("wol", true);
+            String mac = preferences.getString(pcName.c_str(), "");
+            preferences.end();
 
-void checkWiFi() {
-    if (WiFi.status() != WL_CONNECTED) {
-        ledOff();
-        WiFi.disconnect();
-        WiFi.begin(ssid, password);
-    } else {
-        ledOn();
+            if (mac != "") {
+                bot.answerCallbackQuery(bot.messages[i].id, "🚀 Sending...", false);
+                executeWoL(mac, "Bot Button", pcName);
+            }
+            continue;
+        }
+
+        if (text == "/start" || text == "/help") {
+            String welcome = "🖥 *WOL Manager*\n\n/list : Danh sách máy\n/add Name MAC : Thêm\n/delete Name : Xóa";
+            bot.sendMessage(chat_id, welcome, "Markdown");
+        } 
+        else if (text.startsWith("/add ")) {
+            int firstSpace = text.indexOf(' ', 5);
+            if (firstSpace > 5) {
+                String name = text.substring(5, firstSpace);
+                String mac = text.substring(firstSpace + 1);
+                mac.trim();
+                if (mac.length() >= 17) {
+                    savePC(name, mac);
+                    bot.sendMessage(chat_id, "💾 Saved: *" + name + "*", "Markdown");
+                }
+            }
+        }
+        else if (text.startsWith("/delete ")) {
+            String name = text.substring(8);
+            name.trim();
+            deletePC(name);
+            bot.sendMessage(chat_id, "🗑 Deleted: " + name, "");
+        }
+        else if (text == "/list") {
+            sendPCListMenu();
+        }
     }
 }
 
 void setup() {
     pinMode(LED_PIN, OUTPUT);
-    ledOff();
-    
+    digitalWrite(LED_PIN, HIGH);
     Serial.begin(115200);
     WiFi.begin(ssid, password);
-    
-    // Nháy chậm trong khi chờ WiFi
-    while (WiFi.status() != WL_CONNECTED) {
-        ledOn(); delay(100); ledOff(); delay(400);
-    }
-    
-    ledOn(); // Sáng đèn báo hiệu đã online
+    while (WiFi.status() != WL_CONNECTED) { delay(500); }
+    ledOn();
 
     mqttClient.setServer(mqtt_server, mqtt_port);
-    mqttClient.setCallback(mqttCallback);
+    mqttClient.setCallback(mqttCallback); // Đảm bảo đã set callback
     secured_client.setInsecure();
     
     WOL.setRepeat(3, 100);
@@ -122,17 +185,16 @@ void setup() {
 
 void loop() {
     esp_task_wdt_reset(); 
-
-    if (millis() % 60000 == 0) checkWiFi();
-
+    if (millis() % 60000 == 0 && WiFi.status() != WL_CONNECTED) {
+        WiFi.disconnect();
+        WiFi.begin(ssid, password);
+    }
     if (millis() > RESTART_INTERVAL) ESP.restart();
 
     if (!mqttClient.connected()) {
-        ledOff(); // Tắt đèn nếu mất kết nối MQTT
         String clientId = "ESP32C3-WOL-" + String(random(0xffff), HEX);
         if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
             mqttClient.subscribe(topic_command);
-            ledOn();
         }
     }
     mqttClient.loop();

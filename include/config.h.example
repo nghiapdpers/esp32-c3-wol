@@ -13,7 +13,6 @@ const char* mqtt_pass = "";
 
 // --- Chủ đề (Topics) ---
 const char* topic_command = "esp32/wol/command";
-const char* topic_status  = "esp32/wol/status";
 
 // --- Cấu hình Telegram Bot ---
 const char* bot_token = "YOUR_BOT_TOKEN"; 
