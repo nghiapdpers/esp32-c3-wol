@@ -1,0 +1,19 @@
+# PlatformIO
+.pio
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+.vscptrags
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Sensitive Information (QUAN TRỌNG)
+include/config.h
+
+# OS files
+.DS_Store
+Thumbs.db
