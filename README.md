@@ -43,6 +43,8 @@ Dự án điều khiển bật máy tính từ xa (Wake-on-LAN) chuyên nghiệp
 - `/add <Tên> <MAC>` : Thêm máy (Ví dụ: `/add PC1 AA:BB:CC:DD:EE:FF`).
 - `/list` : Hiện danh sách nút bấm để bật máy.
 - `/delete <Tên>` : Xóa máy khỏi danh sách.
+- `/status` : Xem trạng thái hệ thống (Uptime, WiFi, RAM).
+- `/mqtt` : Xem lại thông số cấu hình MQTT.
 
 ### Qua MQTT App
 - Gửi địa chỉ MAC tới `topic_command`. ESP32 sẽ thực thi và báo kết quả về Telegram của bạn.

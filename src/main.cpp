@@ -32,28 +32,26 @@ void ledOff() { digitalWrite(LED_PIN, HIGH); }
 void blinkSuccess() { ledOff(); delay(200); ledOn(); }
 void blinkError() { for (int i = 0; i < 10; i++) { ledOff(); delay(50); ledOn(); delay(50); } }
 
+// --- Hàm tính Uptime ---
+String getUptime() {
+    unsigned long sec = millis() / 1000;
+    int days = sec / 86400;
+    int hours = (sec % 86400) / 3600;
+    int mins = (sec % 3600) / 60;
+    return String(days) + "d " + String(hours) + "h " + String(mins) + "m";
+}
+
 // --- Hàm thực thi WoL ---
 void executeWoL(String mac, String source, String pcName = "") {
     String displayName = (pcName != "") ? pcName : mac;
-    
     if (mac.length() >= 17) {
         WOL.sendMagicPacket(mac.c_str());
-        
-        // Luôn báo về Telegram bất kể nguồn từ đâu
-        String msg = "🚀 *WoL Triggered*\n";
-        msg += "🖥 Device: `" + displayName + "`\n";
-        msg += "📡 Source: `" + source + "`\n";
-        msg += "✅ Status: Magic Packet Sent";
+        String msg = "🚀 *WoL Triggered*\n🖥 Device: `" + displayName + "`\n📡 Source: `" + source + "`\n✅ Status: Magic Packet Sent";
         bot.sendMessage(chat_id, msg, "Markdown");
-        
         blinkSuccess();
     } else {
-        String msg = "❌ *WoL Failed*\n";
-        msg += "🖥 Device: `" + displayName + "`\n";
-        msg += "📡 Source: `" + source + "`\n";
-        msg += "⚠️ Reason: Invalid MAC Address";
+        String msg = "❌ *WoL Failed*\n🖥 Device: `" + displayName + "`\n⚠️ Reason: Invalid MAC Address";
         bot.sendMessage(chat_id, msg, "Markdown");
-        
         blinkError();
     }
 }
@@ -108,14 +106,12 @@ void sendPCListMenu() {
     bot.sendMessageWithInlineKeyboard(chat_id, "Chọn máy tính:", "Markdown", keyboardJson);
 }
 
-// --- Callback MQTT ---
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
     String mac = "";
     for (int i = 0; i < length; i++) mac += (char)payload[i];
     if (String(topic) == topic_command) executeWoL(mac, "MQTT");
 }
 
-// --- Xử lý Telegram ---
 void handleNewMessages(int numNewMessages) {
     for (int i = 0; i < numNewMessages; i++) {
         String chat_id_incoming = String(bot.messages[i].chat_id);
@@ -137,9 +133,22 @@ void handleNewMessages(int numNewMessages) {
         }
 
         if (text == "/start" || text == "/help") {
-            String welcome = "🖥 *WOL Manager*\n\n/list : Danh sách máy\n/add Name MAC : Thêm\n/delete Name : Xóa";
+            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa\n/status : Trạng thái ESP32\n/mqtt : Xem cấu hình";
             bot.sendMessage(chat_id, welcome, "Markdown");
         } 
+        else if (text == "/status") {
+            String stats = "ℹ️ *System Status*\n\n";
+            stats += "⏱ *Uptime:* `" + getUptime() + "`\n";
+            stats += "📶 *WiFi:* `" + String(WiFi.RSSI()) + " dBm`\n";
+            stats += "🌐 *IP:* `" + WiFi.localIP().toString() + "`\n";
+            stats += "🧠 *Free Heap:* `" + String(ESP.getFreeHeap() / 1024) + " KB`\n";
+            stats += "🔥 *Chip:* `ESP32-C3`";
+            bot.sendMessage(chat_id, stats, "Markdown");
+        }
+        else if (text == "/mqtt") {
+            String info = "🌐 *MQTT Config*\n\n📍 Server: `" + String(mqtt_server) + "`\n🔌 Port: `" + String(mqtt_port) + "`\n📥 Topic: `" + String(topic_command) + "`";
+            bot.sendMessage(chat_id, info, "Markdown");
+        }
         else if (text.startsWith("/add ")) {
             int firstSpace = text.indexOf(' ', 5);
             if (firstSpace > 5) {
@@ -173,7 +182,7 @@ void setup() {
     ledOn();
 
     mqttClient.setServer(mqtt_server, mqtt_port);
-    mqttClient.setCallback(mqttCallback); // Đảm bảo đã set callback
+    mqttClient.setCallback(mqttCallback);
     secured_client.setInsecure();
     
     WOL.setRepeat(3, 100);
