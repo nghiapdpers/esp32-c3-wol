@@ -99,10 +99,9 @@ void publishDeviceList() {
         start = end + 1;
         end = index.indexOf('|', start);
     }
-    if (!enableMQTT) {
-        preferences.end();
-        return;
-    }
+    preferences.end();
+
+    if (!enableMQTT) return;
 
     doc["uptime"] = getUptime();
     doc["rssi"] = WiFi.RSSI();
