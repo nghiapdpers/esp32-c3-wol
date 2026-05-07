@@ -1,54 +1,44 @@
 # 🚀 ESP32-C3 Wake-on-LAN (WoL) - Remote Dashboard
 
-A powerful, secure, and aesthetic Remote Wake-on-LAN system designed for the ESP32-C3. Control your PC from anywhere via **Telegram Bot** and **Web Dashboard (GitHub Pages)** without port forwarding.
+A powerful, secure, and professional Remote Wake-on-LAN system for the ESP32-C3. Manage and wake multiple computers from anywhere via Web, Telegram, and MQTT.
 
-## ✨ Key Features
+## 🔥 Detailed Functionalities
 
-- 🌍 **Global Remote Access:** No Port Forwarding required, works behind NAT/CGNAT.
-- 🛡️ **Top-Tier Security:** 
-  - Full **SSL/TLS (Port 8883)** encryption for MQTT communication.
-  - Authentication via **Secret Key** and private topic derivation.
-  - No local web server running (Zero local attack surface).
-- 🤖 **Telegram Bot:** Get notifications, check system status, and trigger WoL via interactive buttons.
-- 🎨 **Premium Web UI:** Modern Glassmorphism design, ready for GitHub Pages hosting.
-- 🔗 **Magic Link:** Instant dashboard login from Telegram with one click.
+### 1. Computer Control & Management
+- **Remote WoL:** Trigger Magic Packets to wake your PC via the Internet.
+- **Device List Management:** Add, edit, or delete computers directly from the Web interface.
+- **Persistent Storage:** Device lists are stored in the ESP32's Flash memory (Preferences), ensuring data is kept after power cycles.
+
+### 2. Web Dashboard (GitHub Pages)
+- **Glassmorphism UI:** Modern, smooth, and fully mobile-responsive interface.
+- **Real-time Sync:** The web app automatically fetches the device list from the ESP32 upon opening.
+- **System Metrics:** Displays Uptime, WiFi signal strength (RSSI), and free RAM on the ESP32.
+
+### 3. Telegram Bot Integration
+- **Smart Button Menu:** Displays the device list as interactive buttons for quick control.
+- **Chat Commands:** Supports `/list`, `/status`, and `/web` commands.
+- **Instant Notifications:** Sends a confirmation message every time a wake command is successfully executed.
+- **Magic Link:** Generates an auto-login link for the Web Dashboard with your Secret Key embedded.
+
+### 4. Security & Reliability
+- **SSL/TLS Encryption:** All communications via Port 8883 (MQTT) and HTTPS are fully encrypted.
+- **Secret Key Authentication:** Only devices with a matching secret key can communicate with the ESP32.
+- **Self-Healing System:** 
+  - **Watchdog Timer (WDT):** Automatically reboots the ESP32 if it hangs or loses connection.
+  - **Auto-Reconnect:** Automatically recovers WiFi and MQTT connections after network interruptions.
+- **Zero-Local-Server:** Internal Web Server is removed to eliminate LAN access vulnerabilities.
+
+### 5. Hardware Feedback
+- **LED Status:** Onboard LED provides visual feedback for connection status and flashes when a packet is sent successfully/unsuccessfully.
 
 ## 🛠️ How It Works
+- **Protocol:** MQTT over SSL (Port 8883).
+- **Topic Structure:** `esp32_c3_wol/[secret_key]/cmd` and `esp32_c3_wol/[secret_key]/res`.
 
-1. **Frontend:** A static web page hosted on GitHub Pages connects to a public MQTT Broker via Secure WebSockets (WSS).
-2. **Bridge:** The MQTT Broker (EMQX) acts as a secure bridge between the Web/Bot and the ESP32.
-3. **Hardware:** The ESP32-C3 listens for commands via a secure SSL connection and broadcasts Magic Packets to your local network.
-
-## ⚙️ Setup
-
-### 1. Hardware Requirements
-- ESP32-C3 (e.g., Super Mini).
-- USB-C cable.
-
-### 2. Software Configuration
-1. Rename `include/config.h.example` to `include/config.h`.
-2. Update the following parameters:
-   - `ssid` / `password`: Your local WiFi credentials.
-   - `bot_token` / `chat_id`: Telegram Bot credentials from @BotFather.
-   - `secret_key`: Your personal secret token (for Web authentication).
-   - `gh_pages_url`: Your GitHub Pages site URL.
-
-### 3. Flashing
-- Use **PlatformIO** in VS Code.
-- Run `Upload` to flash the firmware.
-- (No need to run `Upload Filesystem Image` as we use GitHub Pages for the UI).
-
-### 4. Hosting the Dashboard
-1. Create a GitHub Repo and upload the files from the `data/` directory.
-2. Enable **GitHub Pages** in the Repo Settings.
-
-## 📱 Usage
-
-1. Open your Telegram Bot.
-2. Type `/start` for a list of commands.
-3. Type `/web` to receive your **Magic Link**. Click it to open the Dashboard with auto-login.
-4. On the Dashboard, click **(+)** to add a new device (Name and MAC Address).
-5. Hit **Wake** to wake your PC from anywhere in the world!
+## ⚙️ Setup & Deployment
+1. Configure `include/config.h` (from the `.example` file).
+2. Flash the code to the ESP32-C3 using PlatformIO.
+3. Push the `data` folder contents to the `gh-pages` branch on your GitHub.
 
 ## 📄 License
-This project is licensed under the MIT License.
+MIT License.

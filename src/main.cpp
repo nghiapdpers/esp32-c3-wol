@@ -166,8 +166,8 @@ void setup() {
     ledOn();
 
     // Tạo topic bảo mật
-    topicCmd = "nghiapd_wol/" + String(secret_key) + "/cmd";
-    topicRes = "nghiapd_wol/" + String(secret_key) + "/res";
+    topicCmd = "esp32_c3_wol/" + String(secret_key) + "/cmd";
+    topicRes = "esp32_c3_wol/" + String(secret_key) + "/res";
 
     // Cấu hình SSL
     secured_mqtt_client.setInsecure();

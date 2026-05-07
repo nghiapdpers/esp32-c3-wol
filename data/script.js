@@ -29,8 +29,8 @@ function connectMQTT() {
         return;
     }
 
-    topicCmd = `nghiapd_wol/${secretKey}/cmd`;
-    topicRes = `nghiapd_wol/${secretKey}/res`;
+    topicCmd = `esp32_c3_wol/${secretKey}/cmd`;
+    topicRes = `esp32_c3_wol/${secretKey}/res`;
 
     if (client) client.end();
 
