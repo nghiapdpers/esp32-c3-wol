@@ -35,7 +35,7 @@ function connectMQTT() {
     if (client) client.end();
 
     statusText.innerText = "Đang kết nối MQTT...";
-    
+
     client = mqtt.connect(MQTT_BROKER);
 
     client.on('connect', () => {
