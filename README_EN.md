@@ -47,14 +47,16 @@ The ESP32 will automatically detect and only run the features that have been con
 ### Step 2: Configure Source Code (ESP32)
 1. Download the project source code to your computer.
 2. Navigate to the `include/` directory, copy `config.h.example` to `config.h`.
-3. Open `config.h` and fill in the details:
-   - `ssid` / `password`: Your local WiFi credentials.
-   - `mqtt_server`: Broker address (default: `broker.emqx.io`).
-   - `mqtt_port`: SSL port (default: `8883`).
-   - `bot_token`: The API token from BotFather.
-   - `chat_id`: Your ID from userinfobot.
-   - `secret_key`: Any secret string of your choice (for topic security and web login).
-   - `gh_pages_url`: Your GitHub Pages URL (see Step 4).
+3. Open `config.h` and fill in the details. You can choose to skip features you don't need:
+   - **Core (Required):**
+     - `ssid` / `password`: Your local WiFi credentials.
+   - **Telegram Features (Optional):**
+     - `bot_token` / `chat_id`: For control via Telegram. Leave empty (`""`) if not using.
+   - **Web & MQTT Features (Optional):**
+     - `mqtt_server` / `mqtt_port`: MQTT Broker info. Leave server empty if not using Web/MQTT.
+     - `secret_key`: Used for topic security and web identification.
+   - **Additional Info:**
+     - `gh_pages_url`: Your GitHub Pages URL (used by the Telegram bot for quick links).
 
 ### Step 3: Flash Firmware
 1. Open the project in **VS Code** with the **PlatformIO** plugin installed.
@@ -62,20 +64,13 @@ The ESP32 will automatically detect and only run the features that have been con
 3. Click the arrow icon (→) **Upload** on the PlatformIO toolbar to flash the code.
 
 ### Step 4: Deploy Web Dashboard to GitHub Pages
-> **💡 Note:** If you don't want to create your own GitHub Pages site, you can use the project's official dashboard at: `https://nghiapdpers.github.io/esp32-c3-wol/`. Just enter your Secret Key in the Settings modal to start using it.
-> **⚠️ Warning:** When using the official dashboard, you **MUST NOT CHANGE** the `esp32_c3_wol` topic prefix in the source code; otherwise, the website will not be able to connect to your ESP32.
+> **💡 Note:** If you don't want to create your own site, use the official one at: `https://nghiapdpers.github.io/esp32-c3-wol/`. Just enter your **Secret Key** in the settings modal.
 
-To deploy your own custom site:
-1. Create a new Repository on your personal GitHub account.
-2. Push all source code to the `main` branch.
-3. Create a `gh-pages` branch and move only the 3 files from the `data` folder to the root of this branch:
-   ```bash
-   git checkout --orphan gh-pages
-   git rm -rf .
-   # Copy index.html, style.css, script.js here
-   git add . && git commit -m "Deploy Web" && git push origin gh-pages
-   ```
-4. Go to **Settings** -> **Pages** in the Repo, select the `gh-pages` branch, and click Save. GitHub will provide a URL (this is your `gh_pages_url`).
+To host your own Dashboard on personal GitHub:
+1. Ensure your repository has the `gh-pages` branch (this branch contains the web source code).
+2. Go to **Settings** -> **Pages** in the Repository.
+3. In **Build and deployment** -> **Branch**, select `gh-pages` and `/ (root)`, then click **Save**.
+4. GitHub will provide a URL after a few minutes (e.g., `https://your-user.github.io/your-repo/`). Copy this to `gh_pages_url` in `config.h`.
 
 ### Step 5: Configure Target PC
 1. Enable **Wake-on-LAN** in your PC's BIOS/UEFI settings (usually under Power Management).
@@ -97,11 +92,25 @@ If you want to use third-party apps like *MQTT Dash* or *MQTT Panel*:
 ---
 
 ## 📱 Usage
-1. Type `/web` in your Telegram Bot to get the Dashboard link.
-2. Type `/mqtt` to view your Secret Key and MQTT topics for third-party app integration.
-3. Click the link; the Dashboard will automatically recognize your device.
-4. Add your computers by entering a **Name** and **MAC Address**.
-5. Enjoy waking your PC remotely with just one tap!
+
+The project supports 3 simultaneous control methods:
+
+### 1. Web Dashboard (Recommended)
+- Open your GitHub Pages URL.
+- On first use, go to **Settings** and enter your **Secret Key**.
+- The dashboard will automatically sync and allow you to "Wake" devices with one click.
+- **Tip:** Use the `/web` command on Telegram to get a "Magic Link" for auto-login.
+
+### 2. Telegram Bot (Quick Access)
+- Type `/list` to see your computer list as interactive buttons.
+- Click a button to wake the PC.
+- Use `/status` to check the ESP32 connection state.
+- Add new PCs remotely using: `/add PC_Name MAC_Address`.
+
+### 3. Third-party MQTT App
+- Configure apps like *MQTT Dash*:
+  - **Command Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd`
+  - **Payload:** Send the MAC address (e.g., `AA:BB:CC:DD:EE:FF`).
 
 ## 📄 License
 MIT License.

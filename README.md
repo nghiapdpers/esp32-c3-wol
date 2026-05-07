@@ -47,14 +47,16 @@ ESP32 sẽ tự động nhận diện và chỉ khởi chạy các tính năng �
 ### Bước 2: Cấu hình mã nguồn (ESP32)
 1. Tải mã nguồn dự án về máy tính.
 2. Vào thư mục `include/`, sao chép file `config.h.example` thành `config.h`.
-3. Mở file `config.h` và điền các thông tin:
-   - `ssid` / `password`: Thông tin WiFi nhà bạn.
-   - `mqtt_server`: Địa chỉ Broker (mặc định là `broker.emqx.io`).
-   - `mqtt_port`: Cổng SSL (mặc định là `8883`).
-   - `bot_token`: Token từ BotFather.
-   - `chat_id`: ID từ userinfobot.
-   - `secret_key`: Mã bí mật tùy ý của bạn (dùng để bảo mật Topic và đăng nhập web).
-   - `gh_pages_url`: Đường dẫn GitHub Pages của bạn (xem Bước 4).
+3. Mở file `config.h` và điền các thông tin. Bạn có thể chọn bỏ qua các tính năng không cần thiết:
+   - **Cơ bản (Bắt buộc):**
+     - `ssid` / `password`: Thông tin WiFi để ESP32 kết nối mạng.
+   - **Tính năng Telegram (Tùy chọn):**
+     - `bot_token` / `chat_id`: Để điều khiển qua Telegram. Nếu không dùng, hãy bỏ trống (`""`).
+   - **Tính năng Web & MQTT (Tùy chọn):**
+     - `mqtt_server` / `mqtt_port`: Broker MQTT (mặc định dùng EMQX). Nếu không dùng Web/MQTT, hãy bỏ trống server.
+     - `secret_key`: Dùng để bảo mật và định danh thiết bị của bạn trên Web/MQTT.
+   - **Thông tin bổ sung:**
+     - `gh_pages_url`: URL trang Web Dashboard của bạn (dùng để Bot Telegram tạo link truy cập nhanh).
 
 ### Bước 3: Nạp Firmware
 1. Mở dự án bằng **VS Code** có cài sẵn plugin **PlatformIO**.
@@ -62,20 +64,14 @@ ESP32 sẽ tự động nhận diện và chỉ khởi chạy các tính năng �
 3. Nhấn biểu tượng mũi tên (→) **Upload** trên thanh công cụ của PlatformIO để nạp code.
 
 ### Bước 4: Triển khai Web Dashboard (GitHub Pages)
-> **💡 Lưu ý:** Nếu bạn không muốn tự tạo trang GitHub Pages riêng, bạn có thể sử dụng giao diện mặc định của dự án tại: `https://nghiapdpers.github.io/esp32-c3-wol/`. Chỉ cần nhập Secret Key của bạn vào phần Cài đặt là có thể sử dụng ngay.
+> **💡 Lưu ý:** Nếu bạn không muốn tự tạo trang riêng, có thể sử dụng giao diện mặc định tại: `https://nghiapdpers.github.io/esp32-c3-wol/`. Bạn chỉ cần nhập đúng **Secret Key** của mình trong phần cài đặt trên web.
 > **⚠️ Cảnh báo:** Khi sử dụng Dashboard mặc định, bạn **KHÔNG ĐƯỢC THAY ĐỔI** tiền tố topic `esp32_c3_wol` trong mã nguồn, nếu không trang web sẽ không thể kết nối tới ESP32 của bạn.
 
-Để tự triển khai trang riêng:
-1. Tạo một Repository mới trên GitHub cá nhân của bạn.
-2. Đẩy toàn bộ mã nguồn lên nhánh `main`.
-3. Tạo nhánh `gh-pages` và chỉ đưa 3 file trong thư mục `data` ra ngoài root của nhánh này:
-   ```bash
-   git checkout --orphan gh-pages
-   git rm -rf .
-   # Chỉ copy index.html, style.css, script.js vào đây
-   git add . && git commit -m "Deploy Web" && git push origin gh-pages
-   ```
-4. Vào **Settings** -> **Pages** của Repo, chọn nhánh `gh-pages` và nhấn Save. GitHub sẽ cung cấp một URL (đây là `gh_pages_url`).
+Để tự triển khai Dashboard trên GitHub cá nhân:
+1. Đảm bảo Repository của bạn đã có nhánh `gh-pages` (nhánh này chứa mã nguồn của trang web, tách biệt với code ESP32 ở nhánh `main`).
+2. Vào **Settings** -> **Pages** của Repository.
+3. Tại phần **Build and deployment** -> **Branch**, chọn nhánh `gh-pages` và thư mục `/ (root)`, sau đó nhấn **Save**.
+4. GitHub sẽ cung cấp một URL sau vài phút (ví dụ: `https://your-user.github.io/your-repo/`). Hãy sao chép URL này vào biến `gh_pages_url` trong `config.h`.
 
 ### Bước 5: Cấu hình máy tính mục tiêu (PC)
 1. Bật tính năng **Wake-on-LAN** trong BIOS/UEFI của máy tính cần bật (thường nằm trong phần Power Management).
@@ -97,11 +93,25 @@ Nếu bạn muốn dùng các app như *MQTT Dash* hoặc *MQTT Panel* trên đi
 ---
 
 ## 📱 Cách sử dụng
-1. Gõ `/web` trong Telegram Bot để lấy link truy cập Dashboard.
-2. Gõ `/mqtt` để xem thông tin Secret Key và Topics nếu muốn cài đặt app MQTT bên thứ ba.
-3. Nhấn vào link, Dashboard sẽ tự động nhận diện thiết bị của bạn.
-4. Thêm máy tính bằng cách nhập **Tên** và **Địa chỉ MAC**.
-5. Tận hưởng việc bật máy tính từ xa chỉ với một chạm!
+
+Dự án hỗ trợ 3 phương thức điều khiển song song:
+
+### 1. Web Dashboard (Tiện lợi nhất)
+- Mở URL GitHub Pages của bạn.
+- Lần đầu sử dụng, vào phần **Settings** trên web và nhập **Secret Key** đã cấu hình trong ESP32.
+- Dashboard sẽ tự động kết nối qua MQTT (SSL) để lấy danh sách máy và thực hiện lệnh bật máy.
+- **Mẹo:** Dùng lệnh `/web` trên Telegram để lấy "Magic Link" - tự động đăng nhập không cần nhập key.
+
+### 2. Telegram Bot (Nhanh chóng)
+- Gõ `/list` để hiển thị danh sách máy tính dưới dạng menu nút bấm.
+- Nhấn vào nút tên máy để bật.
+- Dùng `/status` để kiểm tra tình trạng kết nối của ESP32.
+- Thêm máy mới trực tiếp bằng lệnh: `/add Tên_Máy MAC_Address`.
+
+### 3. App MQTT bên thứ ba
+- Nếu bạn thích dùng các app như *MQTT Dash*, hãy cấu hình:
+  - **Topic lệnh:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd`
+  - **Payload:** Gửi địa chỉ MAC của máy (ví dụ: `AA:BB:CC:DD:EE:FF`).
 
 ## 📄 Giấy phép
 Dự án được phát hành dưới giấy phép MIT.

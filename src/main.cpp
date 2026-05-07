@@ -172,7 +172,7 @@ void handleNewMessages(int numNewMessages) {
             continue;
         }
         if (text == "/start" || text == "/help") {
-            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/status : Trạng thái hệ thống";
+            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách máy\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/status : Trạng thái hệ thống";
             if (enableWeb) welcome += "\n/web : Link điều khiển từ xa";
             if (enableMQTT) welcome += "\n/mqtt : Cấu hình MQTT";
             bot.sendMessage(chat_id, welcome, "Markdown");
