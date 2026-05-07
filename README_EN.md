@@ -88,9 +88,11 @@ If you want to use third-party apps like *MQTT Dash* or *MQTT Panel*:
 2. **Port:** `8883` (select SSL/TLS protocol).
 3. **Command Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd` (If no key, use: `esp32_c3_wol/default/cmd`)
 4. **Response Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/res` (If no key, use: `esp32_c3_wol/default/res`)
-5. **Command Structure (JSON):**
-   - Wake Up: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
-   - Sync List: `{"cmd":"sync"}`
+5. **Command Structure (Payload):**
+   - **Method 1 (Simplest):** Just publish the plain MAC address string (e.g., `00:1A:2B:3C:4D:5E`). The ESP32 will automatically detect it and trigger WOL.
+   - **Method 2 (Advanced - JSON):** Used for full management features:
+     - Wake Up: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
+     - Sync List: `{"cmd":"sync"}`
 
 ---
 

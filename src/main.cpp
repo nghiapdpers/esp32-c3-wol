@@ -113,15 +113,24 @@ void publishDeviceList() {
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    String message = "";
+    for (int i = 0; i < length; i++) message += (char)payload[i];
+    message.trim();
+
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload, length);
-    if (error) return;
 
-    String cmd = doc["cmd"].as<String>();
-    if (cmd == "sync") publishDeviceList();
-    else if (cmd == "wol") executeWoL(doc["mac"].as<String>(), "Web-Remote", doc["name"].as<String>());
-    else if (cmd == "add") { savePC(doc["name"].as<String>(), doc["mac"].as<String>()); publishDeviceList(); }
-    else if (cmd == "delete") { deletePC(doc["name"].as<String>()); publishDeviceList(); }
+    if (!error) {
+        String cmd = doc["cmd"].as<String>();
+        if (cmd == "sync") publishDeviceList();
+        else if (cmd == "wol") executeWoL(doc["mac"].as<String>(), "MQTT-App", doc["name"].as<String>());
+        else if (cmd == "add") { savePC(doc["name"].as<String>(), doc["mac"].as<String>()); publishDeviceList(); }
+        else if (cmd == "delete") { deletePC(doc["name"].as<String>()); publishDeviceList(); }
+    } else {
+        if (message.length() >= 17) {
+            executeWoL(message, "MQTT-Plain-MAC", "Unknown PC");
+        }
+    }
 }
 
 void sendPCListMenu() {
@@ -147,7 +156,21 @@ void handleNewMessages(int numNewMessages) {
         String chat_id_incoming = String(bot.messages[i].chat_id);
         if (chat_id_incoming != chat_id) continue;
         String text = bot.messages[i].text;
-        
+        String type = bot.messages[i].type;
+
+        if (type == "callback_query") {
+            bot.answerCallbackQuery(bot.messages[i].query_id, "🚀 Đang gửi lệnh WOL...");
+            String pcName = text; // callback_data được library đưa vào text cho callback_query
+            preferences.begin("wol", true);
+            String mac = preferences.getString(pcName.c_str(), "");
+            preferences.end();
+            if (mac != "") {
+                executeWoL(mac, "Telegram-Bot", pcName);
+            } else {
+                bot.sendMessage(chat_id, "❌ Không tìm thấy MAC cho `" + pcName + "`", "Markdown");
+            }
+            continue;
+        }
         if (text == "/start" || text == "/help") {
             String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/status : Trạng thái hệ thống";
             if (enableWeb) welcome += "\n/web : Link điều khiển từ xa";
@@ -189,7 +212,7 @@ void handleNewMessages(int numNewMessages) {
             }
         }
         else if (text == "/status") {
-            String stats = "ℹ️ *System Status*\n\n⏱ Uptime: `" + getUptime() + "`\n📶 WiFi: `" + String(WiFi.RSSI()) + " dBm`";
+            String stats = "ℹ️ *System Status*\n\n⏱ Uptime: `" + getUptime() + "`\n📶 WiFi: `" + String(WiFi.RSSI()) + " dBm`\n🧠 Free RAM: `" + String(ESP.getFreeHeap() / 1024) + " KB`";
             bot.sendMessage(chat_id, stats, "Markdown");
         }
         else if (text == "/mqtt") {
@@ -241,6 +264,11 @@ void setup() {
 
     esp_task_wdt_init(WDT_TIMEOUT, true); 
     esp_task_wdt_add(NULL); 
+
+    if (enableTelegram) {
+        String startMsg = "✅ *System Online*\nESP32-C3 WoL đã khởi động thành công.\n🌐 IP: `" + WiFi.localIP().toString() + "`";
+        bot.sendMessage(chat_id, startMsg, "Markdown");
+    }
 }
 
 void loop() {

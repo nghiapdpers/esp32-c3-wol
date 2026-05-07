@@ -88,9 +88,11 @@ Nếu bạn muốn dùng các app như *MQTT Dash* hoặc *MQTT Panel* trên đi
 2. **Port:** `8883` (chọn giao thức SSL/TLS).
 3. **Command Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd` (Nếu không có key, dùng: `esp32_c3_wol/default/cmd`)
 4. **Response Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/res` (Nếu không có key, dùng: `esp32_c3_wol/default/res`)
-5. **Cấu trúc lệnh (JSON):**
-   - Đánh thức: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
-   - Đồng bộ danh sách: `{"cmd":"sync"}`
+5. **Cấu trúc lệnh (Payload):**
+   - **Cách 1 (Đơn giản nhất):** Chỉ cần gửi chuỗi địa chỉ MAC (VD: `00:1A:2B:3C:4D:5E`). ESP32 sẽ tự động nhận diện và gửi lệnh WOL.
+   - **Cách 2 (Đầy đủ - JSON):** Dùng cho các ứng dụng cần quản lý chuyên sâu:
+     - Đánh thức: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
+     - Đồng bộ danh sách: `{"cmd":"sync"}`
 
 ---
 
