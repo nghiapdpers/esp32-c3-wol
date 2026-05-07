@@ -5,18 +5,18 @@
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
-// --- MQTT Broker Configuration ---
+// --- MQTT Broker Configuration (Leave mqtt_server empty to disable) ---
 const char* mqtt_server = "broker.emqx.io";
 const int mqtt_port = 8883; // SSL/TLS Port
 const char* mqtt_user = ""; // Leave empty for public brokers
 const char* mqtt_pass = "";
 
-// --- Telegram Bot Configuration ---
+// --- Telegram Bot Configuration (Leave bot_token empty to disable) ---
 const char* bot_token = "YOUR_TELEGRAM_BOT_TOKEN";
 const char* chat_id = "YOUR_TELEGRAM_CHAT_ID";
 const int bot_mtbs = 3000;
 
-// --- Remote Dashboard Security ---
+// --- Remote Dashboard Security (Leave secret_key empty to disable) ---
 const char* secret_key = "YOUR_SECRET_KEY"; // Change this!
 const char* gh_pages_url = "https://yourusername.github.io/your-repo-name/";
 

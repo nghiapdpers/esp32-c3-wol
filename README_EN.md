@@ -28,6 +28,13 @@ A powerful, secure, and professional Remote Wake-on-LAN system for the ESP32-C3.
   - **Auto-Reconnect:** Automatically recovers WiFi and MQTT connections after network interruptions.
 - **Zero-Local-Server:** Internal Web Server is removed to eliminate LAN access vulnerabilities.
 
+### 5. Flexible Configuration (Modular Features)
+The project is designed so you can choose to use 1, 2, or all 3 control methods based on your needs:
+- **Telegram Only:** Leave `mqtt_server` empty in `config.h`.
+- **MQTT Only:** Leave `bot_token` and `chat_id` empty.
+- **No Web Dashboard:** Leave `secret_key` empty. In this case, MQTT topics will use the `default` keyword by default (See Step 6).
+The ESP32 will automatically detect and only run the features that have been configured, saving resources and ensuring stability.
+
 ---
 
 ## 🛠️ Detailed Installation Guide (Step-by-step)
@@ -42,9 +49,11 @@ A powerful, secure, and professional Remote Wake-on-LAN system for the ESP32-C3.
 2. Navigate to the `include/` directory, copy `config.h.example` to `config.h`.
 3. Open `config.h` and fill in the details:
    - `ssid` / `password`: Your local WiFi credentials.
+   - `mqtt_server`: Broker address (default: `broker.emqx.io`).
+   - `mqtt_port`: SSL port (default: `8883`).
    - `bot_token`: The API token from BotFather.
    - `chat_id`: Your ID from userinfobot.
-   - `secret_key`: Any secret string of your choice (for web login).
+   - `secret_key`: Any secret string of your choice (for topic security and web login).
    - `gh_pages_url`: Your GitHub Pages URL (see Step 4).
 
 ### Step 3: Flash Firmware
@@ -69,8 +78,19 @@ To deploy your own custom site:
 4. Go to **Settings** -> **Pages** in the Repo, select the `gh-pages` branch, and click Save. GitHub will provide a URL (this is your `gh_pages_url`).
 
 ### Step 5: Configure Target PC
-1. Enable **Wake-on-LAN** in your PC's BIOS/UEFI settings.
-2. In Windows, go to *Device Manager* -> *Network Adapters* -> Your network card -> *Properties* -> *Power Management* -> Check "Allow this device to wake the computer".
+1. Enable **Wake-on-LAN** in your PC's BIOS/UEFI settings (usually under Power Management).
+2. In Windows, go to *Device Manager* -> *Network Adapters* -> Your network card -> *Properties* -> *Advanced* -> Enable "Magic Packet" and "Wake on Magic Packet".
+3. Go to the *Power Management* tab -> Check "Allow this device to wake the computer".
+
+### Step 6: MQTT App Configuration (Optional)
+If you want to use third-party apps like *MQTT Dash* or *MQTT Panel*:
+1. **Broker:** `broker.emqx.io` (or your chosen broker).
+2. **Port:** `8883` (select SSL/TLS protocol).
+3. **Command Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd` (If no key, use: `esp32_c3_wol/default/cmd`)
+4. **Response Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/res` (If no key, use: `esp32_c3_wol/default/res`)
+5. **Command Structure (JSON):**
+   - Wake Up: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
+   - Sync List: `{"cmd":"sync"}`
 
 ---
 

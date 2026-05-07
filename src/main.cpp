@@ -21,6 +21,11 @@ WiFiClientSecure secured_bot_client; // Dùng SSL cho Bot
 UniversalTelegramBot bot(bot_token, secured_bot_client);
 unsigned long lastTimeBotRan;
 
+// Feature Toggles
+bool enableMQTT = false;
+bool enableTelegram = false;
+bool enableWeb = false;
+
 // Storage
 Preferences preferences;
 
@@ -49,7 +54,7 @@ void executeWoL(String mac, String source, String pcName = "") {
     if (mac.length() >= 17) {
         WOL.sendMagicPacket(mac.c_str());
         String msg = "🚀 *WoL Triggered*\n🖥 Device: `" + displayName + "`\n📡 Source: `" + source + "`\n✅ Status: Magic Packet Sent";
-        bot.sendMessage(chat_id, msg, "Markdown");
+        if (enableTelegram) bot.sendMessage(chat_id, msg, "Markdown");
         blinkSuccess();
     } else {
         blinkError();
@@ -94,8 +99,11 @@ void publishDeviceList() {
         start = end + 1;
         end = index.indexOf('|', start);
     }
-    preferences.end();
-    
+    if (!enableMQTT) {
+        preferences.end();
+        return;
+    }
+
     doc["uptime"] = getUptime();
     doc["rssi"] = WiFi.RSSI();
     doc["heap"] = ESP.getFreeHeap() / 1024;
@@ -142,7 +150,9 @@ void handleNewMessages(int numNewMessages) {
         String text = bot.messages[i].text;
         
         if (text == "/start" || text == "/help") {
-            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/web : Link điều khiển từ xa\n/status : Trạng thái hệ thống\n/mqtt : Cấu hình MQTT";
+            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/status : Trạng thái hệ thống";
+            if (enableWeb) welcome += "\n/web : Link điều khiển từ xa";
+            if (enableMQTT) welcome += "\n/mqtt : Cấu hình MQTT";
             bot.sendMessage(chat_id, welcome, "Markdown");
         } 
         else if (text.startsWith("/add")) {
@@ -172,19 +182,27 @@ void handleNewMessages(int numNewMessages) {
             }
         }
         else if (text == "/web") {
-            String webLink = String(gh_pages_url) + "?key=" + String(secret_key);
-            bot.sendMessage(chat_id, "🌐 *Remote Dashboard*\n\nNhấp vào link để mở (tự động nhập Key):\n\n" + webLink, "Markdown");
+            if (enableWeb) {
+                String webLink = String(gh_pages_url) + "?key=" + String(secret_key);
+                bot.sendMessage(chat_id, "🌐 *Remote Dashboard*\n\nNhấp vào link để mở (tự động nhập Key):\n\n" + webLink, "Markdown");
+            } else {
+                bot.sendMessage(chat_id, "⚠️ Web Dashboard chưa được cấu hình!", "");
+            }
         }
         else if (text == "/status") {
             String stats = "ℹ️ *System Status*\n\n⏱ Uptime: `" + getUptime() + "`\n📶 WiFi: `" + String(WiFi.RSSI()) + " dBm`";
             bot.sendMessage(chat_id, stats, "Markdown");
         }
         else if (text == "/mqtt") {
-            String mqttInfo = "📡 *MQTT Configuration*\n\n";
-            mqttInfo += "🔑 *Secret Key:* `" + String(secret_key) + "`\n";
-            mqttInfo += "📥 *Command Topic:* `" + topicCmd + "`\n";
-            mqttInfo += "📤 *Response Topic:* `" + topicRes + "`";
-            bot.sendMessage(chat_id, mqttInfo, "Markdown");
+            if (enableMQTT) {
+                String mqttInfo = "📡 *MQTT Configuration*\n\n";
+                mqttInfo += "🔑 *Secret Key:* `" + String(secret_key) + "`\n";
+                mqttInfo += "📥 *Command Topic:* `" + topicCmd + "`\n";
+                mqttInfo += "📤 *Response Topic:* `" + topicRes + "`";
+                bot.sendMessage(chat_id, mqttInfo, "Markdown");
+            } else {
+                bot.sendMessage(chat_id, "⚠️ MQTT chưa được cấu hình!", "");
+            }
         }
         else if (text == "/list") sendPCListMenu();
     }
@@ -199,17 +217,25 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) { delay(500); }
     ledOn();
 
-    // Tạo topic bảo mật
-    topicCmd = "esp32_c3_wol/" + String(secret_key) + "/cmd";
-    topicRes = "esp32_c3_wol/" + String(secret_key) + "/res";
+    // Kiểm tra cấu hình
+    if (strlen(mqtt_server) > 0) enableMQTT = true;
+    if (strlen(bot_token) > 0 && strlen(chat_id) > 0 && String(bot_token) != "YOUR_BOT_TOKEN") enableTelegram = true;
+    if (strlen(secret_key) > 0) enableWeb = true;
+
+    // Tạo topic bảo mật (Mặc định dùng "default" nếu không có secret_key)
+    String key = enableWeb ? String(secret_key) : "default";
+    topicCmd = "esp32_c3_wol/" + key + "/cmd";
+    topicRes = "esp32_c3_wol/" + key + "/res";
 
     // Cấu hình SSL
-    secured_mqtt_client.setInsecure();
-    secured_bot_client.setInsecure();
+    if (enableMQTT) secured_mqtt_client.setInsecure();
+    if (enableTelegram) secured_bot_client.setInsecure();
 
-    mqttClient.setServer(mqtt_server, mqtt_port);
-    mqttClient.setCallback(mqttCallback);
-    mqttClient.setBufferSize(2048); // Tăng buffer cho JSON & SSL
+    if (enableMQTT) {
+        mqttClient.setServer(mqtt_server, mqtt_port);
+        mqttClient.setCallback(mqttCallback);
+        mqttClient.setBufferSize(2048); 
+    }
     
     WOL.setRepeat(3, 100);
     WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask());
@@ -221,16 +247,18 @@ void setup() {
 void loop() {
     esp_task_wdt_reset(); 
 
-    if (!mqttClient.connected()) {
-        String clientId = "ESP32C3-WOL-" + String(random(0xffff), HEX);
-        if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
-            mqttClient.subscribe(topicCmd.c_str());
-            publishDeviceList();
+    if (enableMQTT) {
+        if (!mqttClient.connected()) {
+            String clientId = "ESP32C3-WOL-" + String(random(0xffff), HEX);
+            if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+                mqttClient.subscribe(topicCmd.c_str());
+                publishDeviceList();
+            }
         }
+        mqttClient.loop();
     }
-    mqttClient.loop();
 
-    if (millis() > lastTimeBotRan + bot_mtbs) {
+    if (enableTelegram && millis() > lastTimeBotRan + bot_mtbs) {
         int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
         while (numNewMessages) {
             handleNewMessages(numNewMessages);

@@ -28,6 +28,13 @@ Hệ thống điều khiển máy tính từ xa (Wake-on-LAN) mạnh mẽ, bảo
   - **Auto-Reconnect:** Tự tìm lại WiFi và Broker MQTT khi bị ngắt mạng.
 - **Zero-Local-Server:** Loại bỏ Web Server nội bộ để đảm bảo không có lỗ hổng truy cập từ LAN.
 
+### 5. Cấu hình linh hoạt (Modular Features)
+Dự án được thiết kế để bạn có thể chọn sử dụng 1, 2 hoặc cả 3 phương thức điều khiển tùy nhu cầu:
+- **Chỉ dùng Telegram:** Bỏ trống `mqtt_server` trong `config.h`.
+- **Chỉ dùng MQTT:** Bỏ trống `bot_token` và `chat_id`.
+- **Không dùng Web Dashboard:** Bỏ trống `secret_key`. Khi đó, MQTT Topic sẽ mặc định sử dụng từ khóa `default` (Xem Bước 6).
+ESP32 sẽ tự động nhận diện và chỉ khởi chạy các tính năng đã được cấu hình, giúp tiết kiệm tài nguyên và hoạt động ổn định.
+
 ---
 
 ## 🛠️ Hướng dẫn cài đặt chi tiết (Step-by-step)
@@ -42,9 +49,11 @@ Hệ thống điều khiển máy tính từ xa (Wake-on-LAN) mạnh mẽ, bảo
 2. Vào thư mục `include/`, sao chép file `config.h.example` thành `config.h`.
 3. Mở file `config.h` và điền các thông tin:
    - `ssid` / `password`: Thông tin WiFi nhà bạn.
+   - `mqtt_server`: Địa chỉ Broker (mặc định là `broker.emqx.io`).
+   - `mqtt_port`: Cổng SSL (mặc định là `8883`).
    - `bot_token`: Token từ BotFather.
    - `chat_id`: ID từ userinfobot.
-   - `secret_key`: Mã bí mật tùy ý của bạn (dùng để đăng nhập web).
+   - `secret_key`: Mã bí mật tùy ý của bạn (dùng để bảo mật Topic và đăng nhập web).
    - `gh_pages_url`: Đường dẫn GitHub Pages của bạn (xem Bước 4).
 
 ### Bước 3: Nạp Firmware
@@ -69,8 +78,19 @@ Hệ thống điều khiển máy tính từ xa (Wake-on-LAN) mạnh mẽ, bảo
 4. Vào **Settings** -> **Pages** của Repo, chọn nhánh `gh-pages` và nhấn Save. GitHub sẽ cung cấp một URL (đây là `gh_pages_url`).
 
 ### Bước 5: Cấu hình máy tính mục tiêu (PC)
-1. Bật tính năng **Wake-on-LAN** trong BIOS/UEFI của máy tính cần bật.
-2. Trong Windows, vào *Device Manager* -> *Network Adapters* -> Card mạng của bạn -> *Properties* -> *Power Management* -> Tích chọn "Allow this device to wake the computer".
+1. Bật tính năng **Wake-on-LAN** trong BIOS/UEFI của máy tính cần bật (thường nằm trong phần Power Management).
+2. Trong Windows, vào *Device Manager* -> *Network Adapters* -> Card mạng của bạn -> *Properties* -> *Advanced* -> Bật các tính năng như "Magic Packet", "Wake on LAN".
+3. Vào tab *Power Management* -> Tích chọn "Allow this device to wake the computer".
+
+### Bước 6: Cấu hình MQTT App (Nếu dùng app bên thứ 3)
+Nếu bạn muốn dùng các app như *MQTT Dash* hoặc *MQTT Panel* trên điện thoại:
+1. **Broker:** `broker.emqx.io` (hoặc broker bạn dùng).
+2. **Port:** `8883` (chọn giao thức SSL/TLS).
+3. **Command Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd` (Nếu không có key, dùng: `esp32_c3_wol/default/cmd`)
+4. **Response Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/res` (Nếu không có key, dùng: `esp32_c3_wol/default/res`)
+5. **Cấu trúc lệnh (JSON):**
+   - Đánh thức: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
+   - Đồng bộ danh sách: `{"cmd":"sync"}`
 
 ---
 
