@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOL Manager Remote</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <div class="background">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+    </div>
+
+    <div class="glass-container">
+        <header>
+            <div class="header-main">
+                <h1>Wake on LAN</h1>
+                <p id="status-text">Đang kết nối...</p>
+            </div>
+            <div class="header-actions">
+                <button id="settings-btn" title="Cài đặt">⚙️</button>
+                <button id="add-btn" title="Thêm máy">＋</button>
+            </div>
+        </header>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <span class="stat-label">Thời gian chạy</span>
+                <span id="uptime" class="stat-value">--</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">WiFi Signal</span>
+                <span id="rssi" class="stat-value">--</span>
+            </div>
+        </div>
+
+        <div id="device-list" class="device-grid">
+            <!-- Devices will be loaded here -->
+            <div class="loading-spinner">Đang đợi ESP32...</div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Máy -->
+    <div id="modal" class="modal">
+        <div class="modal-content glass">
+            <h2>Thêm thiết bị mới</h2>
+            <div class="input-group">
+                <label>Tên máy tính</label>
+                <input type="text" id="pc-name" placeholder="Ví dụ: PC Gaming">
+            </div>
+            <div class="input-group">
+                <label>Địa chỉ MAC</label>
+                <input type="text" id="pc-mac" placeholder="00:1A:2B:3C:4D:5E">
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-btn" class="btn-secondary">Hủy</button>
+                <button id="save-btn" class="btn-primary">Lưu thiết bị</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cài đặt (Secret Key) -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content glass">
+            <h2>Cấu hình Remote</h2>
+            <p style="font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 15px;">
+                Nhập Secret Key trùng với ESP32 để đồng bộ dữ liệu qua MQTT.
+            </p>
+            <div class="input-group">
+                <label>MQTT Secret Key</label>
+                <input type="password" id="secret-key" placeholder="Nhập key của bạn">
+            </div>
+            <div class="modal-actions">
+                <button id="settings-close-btn" class="btn-primary">Kết nối & Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
