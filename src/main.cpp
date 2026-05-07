@@ -10,19 +10,23 @@
 #include <Preferences.h>
 #include "config.h"
 
-// MQTT & WoL
-WiFiClient espClient;
-PubSubClient mqttClient(espClient);
+// MQTT SSL & WoL
+WiFiClientSecure secured_mqtt_client; // Dùng SSL cho MQTT
+PubSubClient mqttClient(secured_mqtt_client);
 WiFiUDP udp;
 WakeOnLan WOL(udp);
 
 // Telegram
-WiFiClientSecure secured_client;
-UniversalTelegramBot bot(bot_token, secured_client);
+WiFiClientSecure secured_bot_client; // Dùng SSL cho Bot
+UniversalTelegramBot bot(bot_token, secured_bot_client);
 unsigned long lastTimeBotRan;
 
 // Storage
 Preferences preferences;
+
+// Topics động dựa trên Secret Key
+String topicCmd = "";
+String topicRes = "";
 
 #define RESTART_INTERVAL 604800000 
 #define WDT_TIMEOUT 30 
@@ -32,7 +36,6 @@ void ledOff() { digitalWrite(LED_PIN, HIGH); }
 void blinkSuccess() { ledOff(); delay(200); ledOn(); }
 void blinkError() { for (int i = 0; i < 10; i++) { ledOff(); delay(50); ledOn(); delay(50); } }
 
-// --- Hàm tính Uptime ---
 String getUptime() {
     unsigned long sec = millis() / 1000;
     int days = sec / 86400;
@@ -41,7 +44,6 @@ String getUptime() {
     return String(days) + "d " + String(hours) + "h " + String(mins) + "m";
 }
 
-// --- Hàm thực thi WoL ---
 void executeWoL(String mac, String source, String pcName = "") {
     String displayName = (pcName != "") ? pcName : mac;
     if (mac.length() >= 17) {
@@ -50,13 +52,10 @@ void executeWoL(String mac, String source, String pcName = "") {
         bot.sendMessage(chat_id, msg, "Markdown");
         blinkSuccess();
     } else {
-        String msg = "❌ *WoL Failed*\n🖥 Device: `" + displayName + "`\n⚠️ Reason: Invalid MAC Address";
-        bot.sendMessage(chat_id, msg, "Markdown");
         blinkError();
     }
 }
 
-// --- Quản lý PC ---
 void savePC(String name, String mac) {
     preferences.begin("wol", false);
     preferences.putString(name.c_str(), mac);
@@ -77,99 +76,83 @@ void deletePC(String name) {
     preferences.end();
 }
 
-// --- Menu Nút Bấm ---
+void publishDeviceList() {
+    preferences.begin("wol", true);
+    String index = preferences.getString("index", "");
+    DynamicJsonDocument doc(2048);
+    doc["type"] = "list";
+    JsonArray array = doc.createNestedArray("devices");
+    
+    int start = 0;
+    int end = index.indexOf('|');
+    while (end != -1) {
+        String name = index.substring(start, end);
+        String mac = preferences.getString(name.c_str(), "");
+        JsonObject obj = array.createNestedObject();
+        obj["name"] = name;
+        obj["mac"] = mac;
+        start = end + 1;
+        end = index.indexOf('|', start);
+    }
+    preferences.end();
+    
+    doc["uptime"] = getUptime();
+    doc["rssi"] = WiFi.RSSI();
+    doc["heap"] = ESP.getFreeHeap() / 1024;
+
+    String response;
+    serializeJson(doc, response);
+    mqttClient.publish(topicRes.c_str(), response.c_str());
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, payload, length);
+    if (error) return;
+
+    String cmd = doc["cmd"].as<String>();
+    if (cmd == "sync") publishDeviceList();
+    else if (cmd == "wol") executeWoL(doc["mac"].as<String>(), "Web-Remote", doc["name"].as<String>());
+    else if (cmd == "add") { savePC(doc["name"].as<String>(), doc["mac"].as<String>()); publishDeviceList(); }
+    else if (cmd == "delete") { deletePC(doc["name"].as<String>()); publishDeviceList(); }
+}
+
 void sendPCListMenu() {
     preferences.begin("wol", true);
     String index = preferences.getString("index", "");
     preferences.end();
-
-    if (index == "") {
-        bot.sendMessage(chat_id, "⚠️ Danh sách máy trống!", "");
-        return;
-    }
+    if (index == "") { bot.sendMessage(chat_id, "⚠️ Danh sách máy trống!", ""); return; }
 
     String keyboardJson = "[";
-    int start = 0;
-    int end = index.indexOf('|');
-    bool first = true;
-
+    int start = 0; int end = index.indexOf('|'); bool first = true;
     while (end != -1) {
         String pcName = index.substring(start, end);
         if (!first) keyboardJson += ",";
         keyboardJson += "[{\"text\":\"🖥 " + pcName + "\", \"callback_data\":\"" + pcName + "\"}]";
-        start = end + 1;
-        end = index.indexOf('|', start);
-        first = false;
+        start = end + 1; end = index.indexOf('|', start); first = false;
     }
     keyboardJson += "]";
-
     bot.sendMessageWithInlineKeyboard(chat_id, "Chọn máy tính:", "Markdown", keyboardJson);
-}
-
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-    String mac = "";
-    for (int i = 0; i < length; i++) mac += (char)payload[i];
-    if (String(topic) == topic_command) executeWoL(mac, "MQTT");
 }
 
 void handleNewMessages(int numNewMessages) {
     for (int i = 0; i < numNewMessages; i++) {
         String chat_id_incoming = String(bot.messages[i].chat_id);
         if (chat_id_incoming != chat_id) continue;
-
         String text = bot.messages[i].text;
         
-        if (bot.messages[i].type == "callback_query") {
-            String pcName = bot.messages[i].text;
-            preferences.begin("wol", true);
-            String mac = preferences.getString(pcName.c_str(), "");
-            preferences.end();
-
-            if (mac != "") {
-                bot.answerCallbackQuery(bot.messages[i].query_id, "🚀 Sending...", false);
-                executeWoL(mac, "Bot Button", pcName);
-            }
-            continue;
-        }
-
         if (text == "/start" || text == "/help") {
-            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa\n/status : Trạng thái ESP32\n/mqtt : Xem cấu hình";
-            bot.sendMessage(chat_id, welcome, "Markdown");
+            bot.sendMessage(chat_id, "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/web : Link điều khiển từ xa\n/status : Trạng thái ESP32", "Markdown");
         } 
+        else if (text == "/web") {
+            String webLink = String(gh_pages_url) + "?key=" + String(secret_key);
+            bot.sendMessage(chat_id, "🌐 *Remote Dashboard*\n\nNhấp vào link để mở (tự động nhập Key):\n\n" + webLink, "Markdown");
+        }
         else if (text == "/status") {
-            String stats = "ℹ️ *System Status*\n\n";
-            stats += "⏱ *Uptime:* `" + getUptime() + "`\n";
-            stats += "📶 *WiFi:* `" + String(WiFi.RSSI()) + " dBm`\n";
-            stats += "🌐 *IP:* `" + WiFi.localIP().toString() + "`\n";
-            stats += "🧠 *Free Heap:* `" + String(ESP.getFreeHeap() / 1024) + " KB`\n";
-            stats += "🔥 *Chip:* `ESP32-C3`";
+            String stats = "ℹ️ *System Status*\n\n⏱ Uptime: `" + getUptime() + "`\n📶 WiFi: `" + String(WiFi.RSSI()) + " dBm`\n🔑 Key: `" + String(secret_key) + "`";
             bot.sendMessage(chat_id, stats, "Markdown");
         }
-        else if (text == "/mqtt") {
-            String info = "🌐 *MQTT Config*\n\n📍 Server: `" + String(mqtt_server) + "`\n🔌 Port: `" + String(mqtt_port) + "`\n📥 Topic: `" + String(topic_command) + "`";
-            bot.sendMessage(chat_id, info, "Markdown");
-        }
-        else if (text.startsWith("/add ")) {
-            int firstSpace = text.indexOf(' ', 5);
-            if (firstSpace > 5) {
-                String name = text.substring(5, firstSpace);
-                String mac = text.substring(firstSpace + 1);
-                mac.trim();
-                if (mac.length() >= 17) {
-                    savePC(name, mac);
-                    bot.sendMessage(chat_id, "💾 Saved: *" + name + "*", "Markdown");
-                }
-            }
-        }
-        else if (text.startsWith("/delete ")) {
-            String name = text.substring(8);
-            name.trim();
-            deletePC(name);
-            bot.sendMessage(chat_id, "🗑 Deleted: " + name, "");
-        }
-        else if (text == "/list") {
-            sendPCListMenu();
-        }
+        else if (text == "/list") sendPCListMenu();
     }
 }
 
@@ -177,13 +160,22 @@ void setup() {
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
     Serial.begin(115200);
+
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) { delay(500); }
     ledOn();
 
+    // Tạo topic bảo mật
+    topicCmd = "nghiapd_wol/" + String(secret_key) + "/cmd";
+    topicRes = "nghiapd_wol/" + String(secret_key) + "/res";
+
+    // Cấu hình SSL
+    secured_mqtt_client.setInsecure();
+    secured_bot_client.setInsecure();
+
     mqttClient.setServer(mqtt_server, mqtt_port);
     mqttClient.setCallback(mqttCallback);
-    secured_client.setInsecure();
+    mqttClient.setBufferSize(2048); // Tăng buffer cho JSON & SSL
     
     WOL.setRepeat(3, 100);
     WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask());
@@ -194,16 +186,12 @@ void setup() {
 
 void loop() {
     esp_task_wdt_reset(); 
-    if (millis() % 60000 == 0 && WiFi.status() != WL_CONNECTED) {
-        WiFi.disconnect();
-        WiFi.begin(ssid, password);
-    }
-    if (millis() > RESTART_INTERVAL) ESP.restart();
 
     if (!mqttClient.connected()) {
         String clientId = "ESP32C3-WOL-" + String(random(0xffff), HEX);
         if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
-            mqttClient.subscribe(topic_command);
+            mqttClient.subscribe(topicCmd.c_str());
+            publishDeviceList();
         }
     }
     mqttClient.loop();

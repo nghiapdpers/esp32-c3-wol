@@ -1,25 +1,26 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// --- Cấu hình WiFi ---
+// --- WiFi Configuration ---
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
-// --- Cấu hình MQTT Broker ---
+// --- MQTT Broker Configuration ---
 const char* mqtt_server = "broker.emqx.io";
-const int mqtt_port = 1883;
-const char* mqtt_user = "";
+const int mqtt_port = 8883; // SSL/TLS Port
+const char* mqtt_user = ""; // Leave empty for public brokers
 const char* mqtt_pass = "";
 
-// --- Chủ đề (Topics) ---
-const char* topic_command = "esp32/wol/command";
+// --- Telegram Bot Configuration ---
+const char* bot_token = "YOUR_TELEGRAM_BOT_TOKEN";
+const char* chat_id = "YOUR_TELEGRAM_CHAT_ID";
+const int bot_mtbs = 3000;
 
-// --- Cấu hình Telegram Bot ---
-const char* bot_token = "YOUR_BOT_TOKEN"; 
-const char* chat_id = "YOUR_CHAT_ID";     
-const int bot_mtbs = 3000;                
+// --- Remote Dashboard Security ---
+const char* secret_key = "YOUR_SECRET_KEY"; // Change this!
+const char* gh_pages_url = "https://yourusername.github.io/your-repo-name/";
 
-// --- Phần cứng ---
-const int LED_PIN = 8; // LED mặc định trên ESP32-C3 Super Mini
+// --- Hardware ---
+const int LED_PIN = 8; // Default for ESP32-C3 Super Mini
 
 #endif

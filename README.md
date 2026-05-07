@@ -1,53 +1,54 @@
-# ESP32-C3 Remote Wake-on-LAN Manager
+# 🚀 ESP32-C3 Wake-on-LAN (WoL) - Remote Dashboard
 
-Dự án điều khiển bật máy tính từ xa (Wake-on-LAN) chuyên nghiệp sử dụng mạch **ESP32-C3 Super Mini**. Hỗ trợ quản lý danh sách nhiều máy tính, lưu trữ bền vững và giao diện nút bấm tương tác qua Telegram.
+Hệ thống điều khiển máy tính từ xa (Wake-on-LAN) mạnh mẽ, bảo mật và thẩm mỹ dành cho ESP32-C3. Hỗ trợ điều khiển qua **Telegram Bot** và **Web Dashboard (GitHub Pages)** mà không cần mở port router.
 
 ## ✨ Tính năng nổi bật
-- **PC List Management:** Thêm, xóa và lưu trữ danh sách nhiều máy tính trực tiếp vào bộ nhớ Flash (NVS), không mất dữ liệu khi mất điện.
-- **Interactive UI:** Giao diện điều khiển qua Telegram với **Inline Keyboard (Nút bấm trực tiếp)**.
-- **Dual-Mode Control:** Hỗ trợ song song Telegram Bot và App MQTT.
-- **High Reliability (24/7):** Watchdog Timer, tự động phục hồi WiFi/MQTT, và tự động reset định kỳ.
-- **Instant Notification:** Báo cáo trạng thái thành công/thất bại chi tiết ngay lập tức qua Telegram Bot.
 
-## 🛠 Phần cứng yêu cầu
-- Mạch **ESP32-C3 Super Mini**.
-- Cáp USB-C và Nguồn 5V ổn định.
+- 🌍 **Điều khiển từ xa toàn cầu:** Không cần Port Forwarding, hoạt động tốt sau NAT.
+- 🛡️ **Bảo mật tối đa:** 
+  - Giao thức MQTT qua **SSL/TLS (Port 8883)** mã hóa toàn diện.
+  - Xác thực qua **Secret Key** và Topic bí mật.
+  - Không chạy Web Server local để giảm bề mặt tấn công.
+- 🤖 **Telegram Bot:** Nhận thông báo, xem trạng thái và kích hoạt WoL qua nút bấm tiện lợi.
+- 🎨 **Premium Web UI:** Giao diện Glassmorphism hiện đại, hỗ trợ cài đặt GitHub Pages.
+- 🔗 **Magic Link:** Tự động đăng nhập vào Dashboard từ Telegram chỉ với một cú click.
 
-## 🚀 Hướng dẫn cài đặt
+## 🛠️ Cách thức hoạt động
 
-### 1. Chuẩn bị
-- Cài đặt VS Code và extension **PlatformIO**.
-- Tạo Telegram Bot qua @BotFather và lấy Chat ID qua @myidbot.
+1. **Frontend:** Trang web tĩnh được host trên GitHub Pages, kết nối tới MQTT Broker qua WebSockets (WSS).
+2. **Bridge:** MQTT Broker (EMQX) đóng vai trò trung gian truyền lệnh giữa Web/Bot và ESP32.
+3. **Hardware:** ESP32-C3 lắng nghe lệnh từ Broker qua kết nối SSL bảo mật và gửi gói tin Magic Packet trong mạng nội bộ.
 
-### 2. Cấu hình Code
-- Copy file `include/config.h.example` thành `include/config.h`.
-- Điền thông số vào file `include/config.h`:
+## ⚙️ Cài đặt
 
-| Biến | Phân loại | Giải thích |
-| :--- | :--- | :--- |
-| `ssid` / `password` | **Bắt buộc** | WiFi để ESP32 kết nối mạng. |
-| `bot_token` | **Bắt buộc** | Token lấy từ @BotFather. |
-| `chat_id` | **Bắt buộc** | ID cá nhân lấy từ @myidbot. |
-| `mqtt_server` | *Tùy chọn* | Broker MQTT (mặc định: `broker.emqx.io`). |
-| `topic_command` | *Tùy chọn* | Topic nhận lệnh MQTT. |
-| `bot_mtbs` | *Tùy chọn* | Tốc độ check tin nhắn (mặc định `3000`ms). |
-| `LED_PIN` | Phần cứng | Chân LED (Super Mini thường là chân `8`). |
+### 1. Chuẩn bị phần cứng
+- ESP32-C3 (Ví dụ: Super Mini).
+- Cáp USB-C.
+
+### 2. Cấu hình phần mềm
+1. Sao chép file `include/config.h.example` thành `include/config.h`.
+2. Cập nhật các thông số sau:
+   - `ssid` / `password`: WiFi nhà bạn.
+   - `bot_token` / `chat_id`: Thông tin từ BotFather.
+   - `secret_key`: Mã bí mật của riêng bạn (Dùng để xác thực trên Web).
+   - `gh_pages_url`: Đường dẫn trang GitHub Pages của bạn.
 
 ### 3. Nạp Code
-- Nhấn nút **Upload** trên PlatformIO.
+- Sử dụng **PlatformIO** trong VS Code.
+- Chạy `Upload` để nạp firmware.
+- (Không cần chạy `Upload Filesystem Image` vì chúng ta dùng GitHub Pages).
 
-## 📱 Cách sử dụng
+### 4. Thiết lập Web Dashboard
+1. Tạo Repo GitHub và upload các file trong thư mục `data/` lên đó.
+2. Bật tính năng **GitHub Pages** trong phần Settings của Repo.
 
-### Qua Telegram Bot (Khuyên dùng)
-- `/start` : Xem menu hướng dẫn.
-- `/add <Tên> <MAC>` : Thêm máy (Ví dụ: `/add PC1 AA:BB:CC:DD:EE:FF`).
-- `/list` : Hiện danh sách nút bấm để bật máy.
-- `/delete <Tên>` : Xóa máy khỏi danh sách.
-- `/status` : Xem trạng thái hệ thống (Uptime, WiFi, RAM).
-- `/mqtt` : Xem lại thông số cấu hình MQTT.
+## 📱 Hướng dẫn sử dụng
 
-### Qua MQTT App
-- Gửi địa chỉ MAC tới `topic_command`. ESP32 sẽ thực thi và báo kết quả về Telegram của bạn.
+1. Mở Telegram Bot của bạn.
+2. Gõ `/start` để xem danh sách lệnh.
+3. Gõ `/web` để nhận **Magic Link**. Click vào link để mở Dashboard mà không cần nhập key.
+4. Trên Dashboard, ấn nút **(+)** để thêm máy tính mới (Tên và MAC Address).
+5. Nhấn **Wake** để đánh thức máy tính từ bất cứ đâu!
 
----
-*Developed with ❤️ for ESP32-C3 Super Mini.*
+## 📄 Giấy phép
+Dự án này được phát hành dưới giấy phép MIT.
