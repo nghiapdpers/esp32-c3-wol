@@ -142,15 +142,49 @@ void handleNewMessages(int numNewMessages) {
         String text = bot.messages[i].text;
         
         if (text == "/start" || text == "/help") {
-            bot.sendMessage(chat_id, "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/web : Link điều khiển từ xa\n/status : Trạng thái ESP32", "Markdown");
+            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách nút\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/web : Link điều khiển từ xa\n/status : Trạng thái hệ thống\n/mqtt : Cấu hình MQTT";
+            bot.sendMessage(chat_id, welcome, "Markdown");
         } 
+        else if (text.startsWith("/add")) {
+            // Định dạng: /add PC-Name 00:1A:2B:3C:4D:5E
+            int firstSpace = text.indexOf(' ');
+            int lastSpace = text.lastIndexOf(' ');
+            if (firstSpace != -1 && lastSpace != -1 && firstSpace != lastSpace) {
+                String name = text.substring(firstSpace + 1, lastSpace);
+                String mac = text.substring(lastSpace + 1);
+                savePC(name, mac);
+                bot.sendMessage(chat_id, "✅ Đã thêm: `" + name + "` (" + mac + ")", "Markdown");
+                publishDeviceList(); // Sync qua MQTT
+            } else {
+                bot.sendMessage(chat_id, "❌ Sai cú pháp! Dùng: `/add Name MAC`", "Markdown");
+            }
+        }
+        else if (text.startsWith("/delete")) {
+            // Định dạng: /delete PC-Name
+            int space = text.indexOf(' ');
+            if (space != -1) {
+                String name = text.substring(space + 1);
+                deletePC(name);
+                bot.sendMessage(chat_id, "🗑 Đã xóa: `" + name + "`", "Markdown");
+                publishDeviceList(); // Sync qua MQTT
+            } else {
+                bot.sendMessage(chat_id, "❌ Sai cú pháp! Dùng: `/delete Name`", "Markdown");
+            }
+        }
         else if (text == "/web") {
             String webLink = String(gh_pages_url) + "?key=" + String(secret_key);
             bot.sendMessage(chat_id, "🌐 *Remote Dashboard*\n\nNhấp vào link để mở (tự động nhập Key):\n\n" + webLink, "Markdown");
         }
         else if (text == "/status") {
-            String stats = "ℹ️ *System Status*\n\n⏱ Uptime: `" + getUptime() + "`\n📶 WiFi: `" + String(WiFi.RSSI()) + " dBm`\n🔑 Key: `" + String(secret_key) + "`";
+            String stats = "ℹ️ *System Status*\n\n⏱ Uptime: `" + getUptime() + "`\n📶 WiFi: `" + String(WiFi.RSSI()) + " dBm`";
             bot.sendMessage(chat_id, stats, "Markdown");
+        }
+        else if (text == "/mqtt") {
+            String mqttInfo = "📡 *MQTT Configuration*\n\n";
+            mqttInfo += "🔑 *Secret Key:* `" + String(secret_key) + "`\n";
+            mqttInfo += "📥 *Command Topic:* `" + topicCmd + "`\n";
+            mqttInfo += "📤 *Response Topic:* `" + topicRes + "`";
+            bot.sendMessage(chat_id, mqttInfo, "Markdown");
         }
         else if (text == "/list") sendPCListMenu();
     }

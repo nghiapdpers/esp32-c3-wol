@@ -16,7 +16,7 @@ A powerful, secure, and professional Remote Wake-on-LAN system for the ESP32-C3.
 
 ### 3. Telegram Bot Integration
 - **Smart Button Menu:** Displays the device list as interactive buttons for quick control.
-- **Chat Commands:** Supports `/list`, `/status`, and `/web` commands.
+- **Chat Commands:** Supports `/list`, `/add Name MAC`, `/delete Name`, `/status`, `/mqtt`, and `/web` commands.
 - **Instant Notifications:** Sends a confirmation message every time a wake command is successfully executed.
 - **Magic Link:** Generates an auto-login link for the Web Dashboard with your Secret Key embedded.
 
@@ -28,17 +28,58 @@ A powerful, secure, and professional Remote Wake-on-LAN system for the ESP32-C3.
   - **Auto-Reconnect:** Automatically recovers WiFi and MQTT connections after network interruptions.
 - **Zero-Local-Server:** Internal Web Server is removed to eliminate LAN access vulnerabilities.
 
-### 5. Hardware Feedback
-- **LED Status:** Onboard LED provides visual feedback for connection status and flashes when a packet is sent successfully/unsuccessfully.
+---
 
-## 🛠️ How It Works
-- **Protocol:** MQTT over SSL (Port 8883).
-- **Topic Structure:** `esp32_c3_wol/[secret_key]/cmd` and `esp32_c3_wol/[secret_key]/res`.
+## 🛠️ Detailed Installation Guide (Step-by-step)
 
-## ⚙️ Setup & Deployment
-1. Configure `include/config.h` (from the `.example` file).
-2. Flash the code to the ESP32-C3 using PlatformIO.
-3. Push the `data` folder contents to the `gh-pages` branch on your GitHub.
+### Step 1: Prepare Telegram Bot
+1. Search for `@BotFather` on Telegram and type `/newbot` to create a new bot.
+2. Save the **API Token** provided by BotFather.
+3. Search for `@userinfobot` to get your personal **Chat ID**.
+
+### Step 2: Configure Source Code (ESP32)
+1. Download the project source code to your computer.
+2. Navigate to the `include/` directory, copy `config.h.example` to `config.h`.
+3. Open `config.h` and fill in the details:
+   - `ssid` / `password`: Your local WiFi credentials.
+   - `bot_token`: The API token from BotFather.
+   - `chat_id`: Your ID from userinfobot.
+   - `secret_key`: Any secret string of your choice (for web login).
+   - `gh_pages_url`: Your GitHub Pages URL (see Step 4).
+
+### Step 3: Flash Firmware
+1. Open the project in **VS Code** with the **PlatformIO** plugin installed.
+2. Connect your ESP32-C3 to your computer via USB.
+3. Click the arrow icon (→) **Upload** on the PlatformIO toolbar to flash the code.
+
+### Step 4: Deploy Web Dashboard to GitHub Pages
+> **💡 Note:** If you don't want to create your own GitHub Pages site, you can use the project's official dashboard at: `https://nghiapdpers.github.io/esp32-c3-wol/`. Just enter your Secret Key in the Settings modal to start using it.
+> **⚠️ Warning:** When using the official dashboard, you **MUST NOT CHANGE** the `esp32_c3_wol` topic prefix in the source code; otherwise, the website will not be able to connect to your ESP32.
+
+To deploy your own custom site:
+1. Create a new Repository on your personal GitHub account.
+2. Push all source code to the `main` branch.
+3. Create a `gh-pages` branch and move only the 3 files from the `data` folder to the root of this branch:
+   ```bash
+   git checkout --orphan gh-pages
+   git rm -rf .
+   # Copy index.html, style.css, script.js here
+   git add . && git commit -m "Deploy Web" && git push origin gh-pages
+   ```
+4. Go to **Settings** -> **Pages** in the Repo, select the `gh-pages` branch, and click Save. GitHub will provide a URL (this is your `gh_pages_url`).
+
+### Step 5: Configure Target PC
+1. Enable **Wake-on-LAN** in your PC's BIOS/UEFI settings.
+2. In Windows, go to *Device Manager* -> *Network Adapters* -> Your network card -> *Properties* -> *Power Management* -> Check "Allow this device to wake the computer".
+
+---
+
+## 📱 Usage
+1. Type `/web` in your Telegram Bot to get the Dashboard link.
+2. Type `/mqtt` to view your Secret Key and MQTT topics for third-party app integration.
+3. Click the link; the Dashboard will automatically recognize your device.
+4. Add your computers by entering a **Name** and **MAC Address**.
+5. Enjoy waking your PC remotely with just one tap!
 
 ## 📄 License
 MIT License.
