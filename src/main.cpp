@@ -61,6 +61,28 @@ void executeWoL(String mac, String source, String pcName = "") {
     }
 }
 
+void executeShutdown(String mac, String source, String pcName = "") {
+    String displayName = (pcName != "") ? pcName : mac;
+    if (mac.length() >= 17) {
+        if (enableMQTT) {
+            DynamicJsonDocument doc(256);
+            doc["cmd"] = "shutdown";
+            doc["mac"] = mac;
+            doc["name"] = pcName;
+            String payload;
+            serializeJson(doc, payload);
+            mqttClient.publish(topicCmd.c_str(), payload.c_str());
+            
+            String msg = "🛑 *Shutdown Command Sent*\n🖥 Device: `" + displayName + "`\n📡 Source: `" + source + "`\n✅ Status: Sent via MQTT";
+            if (enableTelegram) bot.sendMessage(chat_id, msg, "Markdown");
+            blinkSuccess();
+        } else {
+            if (enableTelegram) bot.sendMessage(chat_id, "⚠️ MQTT chưa được cấu hình để gửi lệnh Shutdown!", "");
+            blinkError();
+        }
+    }
+}
+
 void savePC(String name, String mac) {
     preferences.begin("wol", false);
     preferences.putString(name.c_str(), mac);
@@ -124,6 +146,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         String cmd = doc["cmd"].as<String>();
         if (cmd == "sync") publishDeviceList();
         else if (cmd == "wol") executeWoL(doc["mac"].as<String>(), "MQTT-App", doc["name"].as<String>());
+        else if (cmd == "shutdown") { /* Bỏ qua trên ESP32, lệnh này dành cho PC Agent */ }
         else if (cmd == "add") { savePC(doc["name"].as<String>(), doc["mac"].as<String>()); publishDeviceList(); }
         else if (cmd == "delete") { deletePC(doc["name"].as<String>()); publishDeviceList(); }
     } else {
@@ -144,11 +167,11 @@ void sendPCListMenu() {
     while (end != -1) {
         String pcName = index.substring(start, end);
         if (!first) keyboardJson += ",";
-        keyboardJson += "[{\"text\":\"🖥 " + pcName + "\", \"callback_data\":\"" + pcName + "\"}]";
+        keyboardJson += "[{\"text\":\"🚀 " + pcName + "\", \"callback_data\":\"wol_" + pcName + "\"}, {\"text\":\"🛑 Off\", \"callback_data\":\"off_" + pcName + "\"}]";
         start = end + 1; end = index.indexOf('|', start); first = false;
     }
     keyboardJson += "]";
-    bot.sendMessageWithInlineKeyboard(chat_id, "Chọn máy tính:", "Markdown", keyboardJson);
+    bot.sendMessageWithInlineKeyboard(chat_id, "Chọn lệnh cho máy tính:", "Markdown", keyboardJson);
 }
 
 void handleNewMessages(int numNewMessages) {
@@ -159,15 +182,22 @@ void handleNewMessages(int numNewMessages) {
         String type = bot.messages[i].type;
 
         if (type == "callback_query") {
-            bot.answerCallbackQuery(bot.messages[i].query_id, "🚀 Đang gửi lệnh WOL...");
-            String pcName = text; // callback_data được library đưa vào text cho callback_query
-            preferences.begin("wol", true);
-            String mac = preferences.getString(pcName.c_str(), "");
-            preferences.end();
-            if (mac != "") {
-                executeWoL(mac, "Telegram-Bot", pcName);
-            } else {
-                bot.sendMessage(chat_id, "❌ Không tìm thấy MAC cho `" + pcName + "`", "Markdown");
+            String callbackData = text; // callback_data của library đưa vào text
+            String pcName = "";
+            if (callbackData.startsWith("wol_")) {
+                pcName = callbackData.substring(4);
+                bot.answerCallbackQuery(bot.messages[i].query_id, "🚀 Đang gửi lệnh WOL...");
+                preferences.begin("wol", true);
+                String mac = preferences.getString(pcName.c_str(), "");
+                preferences.end();
+                if (mac != "") executeWoL(mac, "Telegram-Bot", pcName);
+            } else if (callbackData.startsWith("off_")) {
+                pcName = callbackData.substring(4);
+                bot.answerCallbackQuery(bot.messages[i].query_id, "🛑 Đang gửi lệnh Shutdown...");
+                preferences.begin("wol", true);
+                String mac = preferences.getString(pcName.c_str(), "");
+                preferences.end();
+                if (mac != "") executeShutdown(mac, "Telegram-Bot", pcName);
             }
             continue;
         }

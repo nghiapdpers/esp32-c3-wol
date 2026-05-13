@@ -6,6 +6,7 @@ Hệ thống điều khiển máy tính từ xa (Wake-on-LAN) mạnh mẽ, bảo
 
 ### 1. Điều khiển & Quản lý máy tính
 - **Wake-on-LAN từ xa:** Kích hoạt gói tin Magic Packet để bật máy tính qua Internet.
+- **Shutdown-on-LAN (Mới):** Tắt máy tính từ xa thông qua lệnh MQTT (Yêu cầu cài đặt PC Agent).
 - **Quản lý danh sách thiết bị:** Thêm, sửa, xóa máy tính trực tiếp từ giao diện Web.
 - **Lưu trữ vĩnh viễn:** Danh sách máy tính được lưu vào bộ nhớ Flash (Preferences) của ESP32, không bị mất khi mất điện.
 
@@ -88,7 +89,18 @@ Nếu bạn muốn dùng các app như *MQTT Dash* hoặc *MQTT Panel* trên đi
    - **Cách 1 (Đơn giản nhất):** Chỉ cần gửi chuỗi địa chỉ MAC (VD: `00:1A:2B:3C:4D:5E`). ESP32 sẽ tự động nhận diện và gửi lệnh WOL.
    - **Cách 2 (Đầy đủ - JSON):** Dùng cho các ứng dụng cần quản lý chuyên sâu:
      - Đánh thức: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
+     - Tắt máy: `{"cmd":"shutdown", "mac":"00:1A:...", "name":"PC-Name"}`
      - Đồng bộ danh sách: `{"cmd":"sync"}`
+
+### Bước 7: Cài đặt PC Agent (Để dùng tính năng Shutdown)
+Để có thể tắt máy từ xa, máy tính mục tiêu cần chạy một phần mềm nhỏ (Agent) để lắng nghe lệnh từ ESP32.
+1. Truy cập thư mục `pc-agent/` trong dự án.
+2. Đảm bảo bạn đã điền đúng `mqtt_server` và `secret_key` trong file `include/config.h`.
+3. Biên dịch mã nguồn C++ (`main.cpp`) thành file thực thi (`.exe`).
+   - *Gợi ý:* Sử dụng Visual Studio hoặc MinGW với lệnh: `g++ main.cpp -o pc_agent.exe -lmosquitto -liphlpapi`.
+4. Chạy `pc_agent.exe` trên máy tính cần điều khiển.
+   - *Mẹo nâng cao:* Để có thể tắt máy ngay cả khi **chưa đăng nhập (Lock Screen)**, bạn nên cài đặt Agent dưới dạng **Windows Service** bằng công cụ [NSSM](https://nssm.cc/).
+     - Lệnh: `nssm install PCAgent "C:\đường\dẫn\pc_agent.exe"`
 
 ---
 
@@ -103,8 +115,9 @@ Dự án hỗ trợ 3 phương thức điều khiển song song:
 - **Mẹo:** Dùng lệnh `/web` trên Telegram để lấy "Magic Link" - tự động đăng nhập không cần nhập key.
 
 ### 2. Telegram Bot (Nhanh chóng)
-- Gõ `/list` để hiển thị danh sách máy tính dưới dạng menu nút bấm.
-- Nhấn vào nút tên máy để bật.
+- Gõ `/list` để hiển thị danh sách máy tính. Mỗi máy sẽ có 2 lựa chọn:
+  - 🚀 **Tên máy:** Bật máy (WOL).
+  - 🛑 **Off:** Tắt máy (Shutdown - Yêu cầu Agent).
 - Dùng `/status` để kiểm tra tình trạng kết nối của ESP32.
 - Thêm máy mới trực tiếp bằng lệnh: `/add Tên_Máy MAC_Address`.
 
