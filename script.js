@@ -14,6 +14,10 @@ if (keyFromUrl) {
 
 let topicCmd = '';
 let topicRes = '';
+let topicStatus = '';
+
+// --- State ---
+let onlineStatus = {}; // { macWithoutColons: true/false }
 
 // --- DOM Elements ---
 const deviceList = document.getElementById('device-list');
@@ -30,6 +34,7 @@ function connectMQTT() {
 
     topicCmd = `esp32_c3_wol/${secretKey}/cmd`;
     topicRes = `esp32_c3_wol/${secretKey}/res`;
+    topicStatus = `esp32_c3_wol/${secretKey}/status/#`;
 
     if (client) client.end();
 
@@ -42,12 +47,25 @@ function connectMQTT() {
         statusText.innerText = "Đã kết nối Remote";
         statusText.style.color = "#4ade80";
         client.subscribe(topicRes);
+        client.subscribe(topicStatus);
         sendCmd({ cmd: 'sync' });
     });
 
     client.on('message', (topic, message) => {
+        const payload = message.toString();
+        
+        // Xử lý Topic Status (Heartbeat từ Agent)
+        const statusMatch = topic.match(/status\/([0-9A-F]+)$/i);
+        if (statusMatch) {
+            const mac = statusMatch[1].toUpperCase();
+            onlineStatus[mac] = (payload === 'online');
+            updateDeviceStatusUI(mac);
+            return;
+        }
+
+        // Xử lý Topic Response (Dữ liệu từ ESP32)
         try {
-            const data = JSON.parse(message.toString());
+            const data = JSON.parse(payload);
             if (data.type === 'list') {
                 renderDevices(data.devices);
                 document.getElementById('uptime').innerText = data.uptime || '--';
@@ -71,6 +89,10 @@ function sendCmd(obj) {
     }
 }
 
+function normalizeMac(mac) {
+    return mac.replace(/[:.-]/g, '').toUpperCase();
+}
+
 // --- UI Logic ---
 function renderDevices(devices) {
     deviceList.innerHTML = '';
@@ -80,9 +102,19 @@ function renderDevices(devices) {
     }
 
     devices.forEach(dev => {
+        const nMac = normalizeMac(dev.mac);
+        const isOnline = onlineStatus[nMac] || false;
+        
         const card = document.createElement('div');
         card.className = 'device-card';
+        card.setAttribute('data-mac', nMac);
         card.innerHTML = `
+            <div class="device-header">
+                <div class="status-badge ${isOnline ? 'status-online' : 'status-offline'}">
+                    <div class="status-dot"></div>
+                    <span>${isOnline ? 'Online' : 'Offline'}</span>
+                </div>
+            </div>
             <div class="device-info">
                 <h3>${dev.name}</h3>
                 <p>${dev.mac}</p>
@@ -98,10 +130,10 @@ function renderDevices(devices) {
         
         // Gán sự kiện
         card.querySelector('.wake-btn').onclick = (e) => {
-            wakeDevice(dev.mac, dev.name, e.target);
+            wakeDevice(dev.mac, dev.name, e.currentTarget);
         };
         card.querySelector('.shutdown-btn').onclick = (e) => {
-            shutdownDevice(dev.mac, dev.name, e.target);
+            shutdownDevice(dev.mac, dev.name, e.currentTarget);
         };
         card.querySelector('.delete-btn').onclick = () => {
             deleteDevice(dev.name);
@@ -109,6 +141,16 @@ function renderDevices(devices) {
         
         deviceList.appendChild(card);
     });
+}
+
+function updateDeviceStatusUI(mac) {
+    const card = document.querySelector(`.device-card[data-mac="${mac}"]`);
+    if (card) {
+        const isOnline = onlineStatus[mac];
+        const badge = card.querySelector('.status-badge');
+        badge.className = `status-badge ${isOnline ? 'status-online' : 'status-offline'}`;
+        badge.querySelector('span').innerText = isOnline ? 'Online' : 'Offline';
+    }
 }
 
 function wakeDevice(mac, name, btn) {
