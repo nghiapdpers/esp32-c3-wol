@@ -152,5 +152,13 @@ The project supports 3 simultaneous control methods:
   - **Command Topic:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd`
   - **Payload:** Send the MAC address (e.g., `AA:BB:CC:DD:EE:FF`).
 
+## 🤝 Acknowledgements (Credits)
+This project uses several amazing libraries and tools:
+- **SimpleServiceManager (SSM)** by [koleys](https://github.com/koleys/SimpleServiceManager) - A simple and powerful Windows Service manager.
+- **PubSubClient** by [knolleary](https://github.com/knolleary/pubsubclient).
+- **UniversalTelegramBot** by [witnessmenow](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot).
+- **ArduinoJson** by [bblanchon](https://github.com/bblanchon/ArduinoJson).
+- **WakeOnLan** by [a7md0](https://github.com/a7md0/WakeOnLan).
+
 ## 📄 License
 MIT License.

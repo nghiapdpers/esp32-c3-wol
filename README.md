@@ -154,5 +154,13 @@ Dự án hỗ trợ 3 phương thức điều khiển song song:
   - **Topic lệnh:** `esp32_c3_wol/YOUR_SECRET_KEY/cmd`
   - **Payload:** Gửi địa chỉ MAC của máy (ví dụ: `AA:BB:CC:DD:EE:FF`).
 
+## 🤝 Lời cảm ơn (Credits)
+Dự án có sử dụng các thư viện và công cụ tuyệt vời từ cộng đồng:
+- **SimpleServiceManager (SSM)** bởi [koleys](https://github.com/koleys/SimpleServiceManager) - Công cụ quản lý Windows Service mạnh mẽ và đơn giản.
+- **PubSubClient** bởi [knolleary](https://github.com/knolleary/pubsubclient).
+- **UniversalTelegramBot** bởi [witnessmenow](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot).
+- **ArduinoJson** bởi [bblanchon](https://github.com/bblanchon/ArduinoJson).
+- **WakeOnLan** bởi [a7md0](https://github.com/a7md0/WakeOnLan).
+
 ## 📄 Giấy phép
 Dự án được phát hành dưới giấy phép MIT.
