@@ -113,8 +113,20 @@ To shut down your computer remotely, the target PC must run a lightweight backgr
 3. **Deployment:** 
    - Copy `pc_agent_windows.exe` (or `pc_agent_linux`) to the target PC and run it.
    - *Note:* The Agent automatically enables **SSL/TLS** if you use port `8883`.
-   - *Advanced Tip:* To allow shutdown even from the **Lock Screen**, install the agent as a **Windows Service** using [NSSM](https://nssm.cc/).
-     - Command: `nssm install PCAgent "C:\path\to\pc_agent_windows.exe"`
+   - *Advanced Tip:* To allow shutdown even from the **Lock Screen**, install the agent as a **Windows Service** using [SimpleServiceManager (SSM)](https://github.com/koleys/SimpleServiceManager).
+     - **Configuration:** Edit the `appsettings.json` file bundled with SSM:
+       ```json
+       {
+         "Configs": {
+           "AppPath": "C:\\path\\to\\pc_agent_windows.exe",
+           "AppParams": "--mac AA:BB:CC:DD:EE:FF",
+           "RestartAppAutomatically": true,
+           "RestartDelay": 5000
+         }
+       }
+       ```
+     - **Installation:** Open CMD as Administrator and run: `sc create PCAgent start= auto binPath= "C:\path\to\SimpleServiceManager.exe"`
+     - **Note:** If the computer has multiple network adapters (WiFi, LAN, Virtual), you **must** specify the `--mac` parameter in `AppParams` so the Agent can correctly identify the device to shut down.
 
 ---
 

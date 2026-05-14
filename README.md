@@ -115,8 +115,20 @@ Nếu bạn muốn dùng các app như *MQTT Dash* hoặc *MQTT Panel* trên đi
 3. **Triển khai:** 
    - Copy file `pc_agent_windows.exe` (hoặc `pc_agent_linux`) sang máy tính mục tiêu và chạy.
    - *Lưu ý:* Agent hỗ trợ **SSL/TLS** tự động nếu bạn sử dụng port `8883`.
-   - *Mẹo nâng cao:* Để có thể tắt máy ngay cả khi **chưa đăng nhập (Lock Screen)**, bạn nên cài đặt Agent dưới dạng **Windows Service** bằng công cụ [NSSM](https://nssm.cc/).
-     - Lệnh: `nssm install PCAgent "C:\đường\dẫn\pc_agent_windows.exe"`
+   - *Mẹo nâng cao:* Để có thể tắt máy ngay cả khi **chưa đăng nhập (Lock Screen)**, bạn nên cài đặt Agent dưới dạng **Windows Service** bằng công cụ [SimpleServiceManager (SSM)](https://github.com/koleys/SimpleServiceManager).
+     - **Cấu hình:** Sửa file `appsettings.json` đi kèm SSM:
+       ```json
+       {
+         "Configs": {
+           "AppPath": "C:\\path\\to\\pc_agent_windows.exe",
+           "AppParams": "--mac AA:BB:CC:DD:EE:FF",
+           "RestartAppAutomatically": true,
+           "RestartDelay": 5000
+         }
+       }
+       ```
+     - **Cài đặt:** Mở CMD với quyền Admin và chạy: `sc create PCAgent start= auto binPath= "C:\path\to\SimpleServiceManager.exe"`
+     - **Lưu ý:** Nếu máy tính có nhiều card mạng (Wifi, LAN, Virtual), bạn **bắt buộc** phải điền tham số `--mac` vào `AppParams` để Agent định danh đúng thiết bị cần tắt.
 
 ---
 

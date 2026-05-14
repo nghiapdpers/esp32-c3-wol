@@ -8,14 +8,19 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <Preferences.h>
+#include <map>
 #include "config.h"
 
 // MQTT SSL & WoL
 WiFiClient wifi_client;
 WiFiClientSecure secured_mqtt_client;
-PubSubClient mqttClient; // Khởi tạo không client, sẽ gán trong setup()
+PubSubClient mqttClient; 
 WiFiUDP udp;
 WakeOnLan WOL(udp);
+
+// Trạng thái Agent
+std::map<String, bool> onlineStatus;
+String topicStatusPrefix = "";
 
 // Telegram
 WiFiClientSecure secured_bot_client; // Dùng SSL cho Bot
@@ -62,6 +67,15 @@ bool isValidMAC(String mac) {
     return true;
 }
 
+String normalizeMac(String mac) {
+    mac.replace(":", "");
+    mac.replace("-", "");
+    mac.replace(".", "");
+    mac.toUpperCase();
+    mac.trim();
+    return mac;
+}
+
 void executeWoL(String mac, String source, String pcName = "") {
     String displayName = (pcName != "") ? pcName : mac;
     if (isValidMAC(mac)) {
@@ -75,19 +89,22 @@ void executeWoL(String mac, String source, String pcName = "") {
     }
 }
 
-void executeShutdown(String mac, String source, String pcName = "") {
+void executeShutdown(String mac, String source, String pcName = "", bool publishMQTT = true) {
     String displayName = (pcName != "") ? pcName : mac;
     if (isValidMAC(mac)) {
         if (enableMQTT) {
-            DynamicJsonDocument doc(256);
-            doc["cmd"] = "shutdown";
-            doc["mac"] = mac;
-            doc["name"] = pcName;
-            String payload;
-            serializeJson(doc, payload);
-            mqttClient.publish(topicCmd.c_str(), payload.c_str());
+            if (publishMQTT) {
+                DynamicJsonDocument doc(256);
+                doc["cmd"] = "shutdown";
+                doc["mac"] = mac;
+                doc["name"] = pcName;
+                String payload;
+                serializeJson(doc, payload);
+                mqttClient.publish(topicCmd.c_str(), payload.c_str());
+            }
             
-            String msg = "🛑 *Shutdown Command Sent*\n🖥 Device: `" + displayName + "`\n📡 Source: `" + source + "`\n✅ Status: Sent via MQTT";
+            String status = publishMQTT ? "Sent via MQTT" : "Received via MQTT";
+            String msg = "🛑 *Shutdown Command*\n🖥 Device: `" + displayName + "`\n📡 Source: `" + source + "`\n✅ Status: " + status;
             if (enableTelegram) bot.sendMessage(chat_id, msg, "Markdown");
             blinkSuccess();
         } else {
@@ -157,9 +174,18 @@ void publishDeviceList() {
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    String topicStr = String(topic);
     String message = "";
     for (int i = 0; i < length; i++) message += (char)payload[i];
     message.trim();
+
+    // Xử lý status từ Agent
+    if (topicStr.startsWith(topicStatusPrefix)) {
+        String mac = topicStr.substring(topicStatusPrefix.length());
+        mac.toUpperCase();
+        onlineStatus[mac] = (message == "online");
+        return;
+    }
 
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload, length);
@@ -168,7 +194,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         String cmd = doc["cmd"].as<String>();
         if (cmd == "sync") publishDeviceList();
         else if (cmd == "wol") executeWoL(doc["mac"].as<String>(), "MQTT-App", doc["name"].as<String>());
-        else if (cmd == "shutdown") { /* Bỏ qua trên ESP32, lệnh này dành cho PC Agent */ }
+        else if (cmd == "shutdown") { 
+            executeShutdown(doc["mac"].as<String>(), "Web-Dashboard", doc["name"].as<String>(), false);
+        }
         else if (cmd == "add") { savePC(doc["name"].as<String>(), doc["mac"].as<String>()); publishDeviceList(); }
         else if (cmd == "delete") { deletePC(doc["name"].as<String>()); publishDeviceList(); }
     } else {
@@ -181,19 +209,26 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 void sendPCListMenu() {
     preferences.begin("wol", true);
     String index = preferences.getString("index", "");
-    preferences.end();
-    if (index == "") { bot.sendMessage(chat_id, "⚠️ Danh sách máy trống!", ""); return; }
+    if (index == "") { preferences.end(); bot.sendMessage(chat_id, "⚠️ Danh sách máy trống!", ""); return; }
 
     String keyboardJson = "[";
     int start = 0; int end = index.indexOf('|'); bool first = true;
     while (end != -1) {
         String pcName = index.substring(start, end);
+        String mac = preferences.getString(pcName.c_str(), "");
+        
+        // Kiểm tra trạng thái online
+        String nMac = normalizeMac(mac);
+        bool isOnline = onlineStatus.count(nMac) && onlineStatus[nMac];
+        String statusEmoji = isOnline ? "🟢" : "⚪";
+        
         if (!first) keyboardJson += ",";
-        keyboardJson += "[{\"text\":\"🚀 " + pcName + "\", \"callback_data\":\"wol_" + pcName + "\"}, {\"text\":\"🛑 Off\", \"callback_data\":\"off_" + pcName + "\"}]";
+        keyboardJson += "[{\"text\":\"" + statusEmoji + " " + pcName + "\", \"callback_data\":\"wol_" + pcName + "\"}, {\"text\":\"🛑 Off\", \"callback_data\":\"off_" + pcName + "\"}]";
         start = end + 1; end = index.indexOf('|', start); first = false;
     }
+    preferences.end();
     keyboardJson += "]";
-    bot.sendMessageWithInlineKeyboard(chat_id, "Chọn lệnh cho máy tính:", "Markdown", keyboardJson);
+    bot.sendMessageWithInlineKeyboard(chat_id, "Chọn lệnh cho máy tính (🟢 Online, ⚪ Offline):", "Markdown", keyboardJson);
 }
 
 void handleNewMessages(int numNewMessages) {
@@ -307,6 +342,7 @@ void setup() {
     String key = enableWeb ? String(secret_key) : "default";
     topicCmd = "esp32_c3_wol/" + key + "/cmd";
     topicRes = "esp32_c3_wol/" + key + "/res";
+    topicStatusPrefix = "esp32_c3_wol/" + key + "/status/";
 
     // Cấu hình MQTT Client dựa trên Port
     if (enableMQTT) {
@@ -348,6 +384,7 @@ void loop() {
             String clientId = "ESP32C3-WOL-" + String(random(0xffff), HEX);
             if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
                 mqttClient.subscribe(topicCmd.c_str());
+                mqttClient.subscribe((topicStatusPrefix + "#").c_str());
                 publishDeviceList();
             }
         }
