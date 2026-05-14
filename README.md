@@ -94,24 +94,29 @@ Nếu bạn muốn dùng các app như *MQTT Dash* hoặc *MQTT Panel* trên đi
 
 ### Bước 7: Cài đặt PC Agent (Để dùng tính năng Shutdown)
 Để có thể tắt máy từ xa, máy tính mục tiêu cần chạy một phần mềm nhỏ (Agent) để lắng nghe lệnh từ ESP32.
-1. Truy cập thư mục `pc-agent/` trong dự án.
-2. **Cấu hình:** Agent có 3 cách để nhận thông tin (Server, Port, Secret Key):
+
+1. **Cấu hình:** Agent có 3 cách để nhận thông tin (Server, Port, Secret Key):
    - **Tự động:** Khi build trong project, Agent sẽ tự đọc file `include/config.h`.
-   - **File JSON:** Sao chép file `agent_config.json.example` thành `agent_config.json` nằm cùng thư mục với file `.exe` và sửa nội dung:
+   - **File JSON:** Sao chép file `agent_config.json.example` thành `agent_config.json` nằm cùng thư mục với file chạy và sửa nội dung:
      ```json
      {"mqtt_server": "broker.emqx.io", "mqtt_port": 8883, "secret_key": "your_key"}
      ```
    - **Tham số dòng lệnh:** Chạy agent với `--mac AA:BB:CC...` để ghi đè địa chỉ MAC nếu máy có nhiều card mạng.
-3. **Biên dịch:** 
-   - **Tự động (Khuyên dùng):** Mỗi khi bạn `push` code lên GitHub, **GitHub Actions** sẽ tự động build và tạo bản tải về (Artifacts) cho cả Windows và Linux trong tab **Actions**.
-   - **Thủ công:** 
-     - Windows: Chạy `build_exe.bat`.
-     - Linux: Chạy `bash build_linux.sh`.
-4. **Triển khai:** 
-   - Copy file `pc_agent.exe` (và file `agent_config.json` nếu có) sang máy tính mục tiêu và chạy.
+
+2. **Cách lấy file PC Agent:**
+   - **Tải bản build sẵn (Nhanh nhất):** Truy cập mục [**Releases**](https://github.com/nghiapdpers/esp32-c3-wol/releases) của Repository này để tải về bản mới nhất cho Windows (`.exe`) hoặc Linux.
+   - **Tự build thủ công:**
+     - Yêu cầu: Đã cài đặt Python 3.10+ và PyInstaller (`pip install pyinstaller`).
+     - Vào thư mục `pc-agent/`.
+     - Windows: Chạy file `build_exe.bat`.
+     - Linux: Chạy lệnh `bash build_linux.sh`.
+     - Sau khi chạy, file kết quả sẽ nằm trong thư mục `dist/`.
+
+3. **Triển khai:** 
+   - Copy file `pc_agent_windows.exe` (hoặc `pc_agent_linux`) sang máy tính mục tiêu và chạy.
    - *Lưu ý:* Agent hỗ trợ **SSL/TLS** tự động nếu bạn sử dụng port `8883`.
    - *Mẹo nâng cao:* Để có thể tắt máy ngay cả khi **chưa đăng nhập (Lock Screen)**, bạn nên cài đặt Agent dưới dạng **Windows Service** bằng công cụ [NSSM](https://nssm.cc/).
-     - Lệnh: `nssm install PCAgent "C:\đường\dẫn\pc_agent.exe"`
+     - Lệnh: `nssm install PCAgent "C:\đường\dẫn\pc_agent_windows.exe"`
 
 ---
 

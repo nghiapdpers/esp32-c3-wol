@@ -45,6 +45,8 @@ Hệ thống gồm 3 thành phần chính giao tiếp thời gian thực qua MQT
 ## 8. Changelog (newest first)
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-05-14 | Đồng bộ tài liệu README (VN & EN) với quy trình GitHub Release mới | Antigravity |
+| 2026-05-14 | Tự động tạo GitHub Release sau khi build PC Agent thành công | Antigravity |
 | 2026-05-14 | Bảo trì & Bảo mật: Fix lỗi delimiter, validate MAC, hỗ trợ MQTT Port 1883/8883, và Heartbeat cho Agent | Antigravity |
 | 2026-05-14 | Nâng cấp PC Agent: Hỗ trợ SSL, CLI Arguments và file cấu hình JSON | Antigravity |
 | 2026-05-14 | Chuyển đổi PC Agent sang Python để dễ bảo trì và đóng gói | Antigravity |

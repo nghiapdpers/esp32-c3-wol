@@ -7,6 +7,9 @@ on:
       - 'pc-agent/**'
   workflow_dispatch: # Cho phép bấm nút build thủ công
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build for ${{ matrix.os }}
@@ -48,3 +51,34 @@ jobs:
       with:
         name: ${{ matrix.artifact_name }}
         path: dist/*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare Release Files
+        run: |
+          mkdir -p release_files
+          # Di chuyển các file từ thư mục artifact ra thư mục release_files để upload lên Release
+          find artifacts -type f -exec cp {} release_files/ \;
+          ls -R release_files/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Build Release #${{ github.run_number }}"
+          draft: false
+          prerelease: false
+          files: |
+            release_files/pc_agent_windows.exe
+            release_files/pc_agent_linux
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

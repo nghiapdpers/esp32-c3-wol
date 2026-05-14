@@ -93,24 +93,28 @@ If you want to use third-party apps like *MQTT Dash* or *MQTT Panel*:
 
 ### Step 7: Install PC Agent (For Shutdown Feature)
 To shut down your computer remotely, the target PC must run a lightweight background script (Agent) to listen for commands from the ESP32.
-1. Navigate to the `pc-agent/` directory in this project.
-2. **Configuration:** The Agent has 3 ways to get settings (Server, Port, Secret Key):
-   - **Automatic:** When built within the project, it automatically syncs with `include/config.h`.
-   - **JSON Config:** Copy `agent_config.json.example` to `agent_config.json` in the same folder as the `.exe`:
+
+1. **Configuration:** The Agent has 3 ways to get settings (Server, Port, Secret Key):
+   - **Automatic:** When built within the project, it automatically reads `include/config.h`.
+   - **JSON Config:** Copy `agent_config.json.example` to `agent_config.json` in the same directory as the executable:
      ```json
      {"mqtt_server": "broker.emqx.io", "mqtt_port": 8883, "secret_key": "your_key"}
      ```
-   - **CLI Arguments:** Run the agent with `--mac AA:BB:CC...` to override the MAC address if you have multiple network cards.
-3. **Build:**
-   - **Automated (Recommended):** Every time you `push` to GitHub, **GitHub Actions** will automatically build and create downloadables (Artifacts) for both Windows and Linux in the **Actions** tab.
-   - **Manual:**
-     - Windows: Run `build_exe.bat`.
-     - Linux: Run `bash build_linux.sh`.
-4. **Deployment:**
-   - Copy `pc_agent.exe` (and `agent_config.json` if used) to the target PC and run it.
+   - **CLI Arguments:** Run the agent with `--mac AA:BB:CC...` to override the MAC address if you have multiple network adapters.
+
+2. **How to get the PC Agent:**
+   - **Download Pre-built Binaries (Fastest):** Go to the [**Releases**](https://github.com/nghiapdpers/esp32-c3-wol/releases) section of this Repository to download the latest version for Windows (`.exe`) or Linux.
+   - **Manual Build:**
+     - Requirement: Python 3.10+ and install libraries: `pip install -r pc-agent/requirements.txt pyinstaller`.
+     - Windows: Run `pc-agent/build_exe.bat`.
+     - Linux: Run `bash pc-agent/build_linux.sh`.
+     - After building, the resulting files will be located in the `dist/` directory.
+
+3. **Deployment:** 
+   - Copy `pc_agent_windows.exe` (or `pc_agent_linux`) to the target PC and run it.
    - *Note:* The Agent automatically enables **SSL/TLS** if you use port `8883`.
    - *Advanced Tip:* To allow shutdown even from the **Lock Screen**, install the agent as a **Windows Service** using [NSSM](https://nssm.cc/).
-     - Command: `nssm install PCAgent "C:\path\to\pc_agent.exe"`
+     - Command: `nssm install PCAgent "C:\path\to\pc_agent_windows.exe"`
 
 ---
 
