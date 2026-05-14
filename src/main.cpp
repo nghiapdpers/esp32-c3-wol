@@ -11,8 +11,9 @@
 #include "config.h"
 
 // MQTT SSL & WoL
-WiFiClientSecure secured_mqtt_client; // Dùng SSL cho MQTT
-PubSubClient mqttClient(secured_mqtt_client);
+WiFiClient wifi_client;
+WiFiClientSecure secured_mqtt_client;
+PubSubClient mqttClient; // Khởi tạo không client, sẽ gán trong setup()
 WiFiUDP udp;
 WakeOnLan WOL(udp);
 
@@ -49,21 +50,34 @@ String getUptime() {
     return String(days) + "d " + String(hours) + "h " + String(mins) + "m";
 }
 
+bool isValidMAC(String mac) {
+    if (mac.length() != 17) return false;
+    for (int i = 0; i < 17; i++) {
+        if (i % 3 == 2) {
+            if (mac[i] != ':' && mac[i] != '-' && mac[i] != '.') return false;
+        } else {
+            if (!isxdigit(mac[i])) return false;
+        }
+    }
+    return true;
+}
+
 void executeWoL(String mac, String source, String pcName = "") {
     String displayName = (pcName != "") ? pcName : mac;
-    if (mac.length() >= 17) {
+    if (isValidMAC(mac)) {
         WOL.sendMagicPacket(mac.c_str());
         String msg = "🚀 *WoL Triggered*\n🖥 Device: `" + displayName + "`\n📡 Source: `" + source + "`\n✅ Status: Magic Packet Sent";
         if (enableTelegram) bot.sendMessage(chat_id, msg, "Markdown");
         blinkSuccess();
     } else {
+        if (enableTelegram) bot.sendMessage(chat_id, "❌ Lỗi: Địa chỉ MAC không hợp lệ: `" + mac + "`", "Markdown");
         blinkError();
     }
 }
 
 void executeShutdown(String mac, String source, String pcName = "") {
     String displayName = (pcName != "") ? pcName : mac;
-    if (mac.length() >= 17) {
+    if (isValidMAC(mac)) {
         if (enableMQTT) {
             DynamicJsonDocument doc(256);
             doc["cmd"] = "shutdown";
@@ -80,10 +94,18 @@ void executeShutdown(String mac, String source, String pcName = "") {
             if (enableTelegram) bot.sendMessage(chat_id, "⚠️ MQTT chưa được cấu hình để gửi lệnh Shutdown!", "");
             blinkError();
         }
+    } else {
+        if (enableTelegram) bot.sendMessage(chat_id, "❌ Lỗi: Địa chỉ MAC không hợp lệ: `" + mac + "`", "Markdown");
+        blinkError();
     }
 }
 
 void savePC(String name, String mac) {
+    name.replace("|", ""); // Xóa ký tự phân tách để tránh lỗi parse
+    mac.toUpperCase();
+    mac.trim();
+    if (!isValidMAC(mac)) return;
+
     preferences.begin("wol", false);
     preferences.putString(name.c_str(), mac);
     String index = preferences.getString("index", "");
@@ -106,7 +128,7 @@ void deletePC(String name) {
 void publishDeviceList() {
     preferences.begin("wol", true);
     String index = preferences.getString("index", "");
-    DynamicJsonDocument doc(2048);
+    DynamicJsonDocument doc(4096);
     doc["type"] = "list";
     JsonArray array = doc.createNestedArray("devices");
     
@@ -202,9 +224,16 @@ void handleNewMessages(int numNewMessages) {
             continue;
         }
         if (text == "/start" || text == "/help") {
-            String welcome = "🖥 *WOL Manager*\n\n/list : Hiện danh sách máy\n/add Name MAC : Thêm máy\n/delete Name : Xóa máy\n/status : Trạng thái hệ thống";
-            if (enableWeb) welcome += "\n/web : Link điều khiển từ xa";
-            if (enableMQTT) welcome += "\n/mqtt : Cấu hình MQTT";
+            String welcome = "🖥 *ESP32-C3 WoL & Shutdown Manager*\n\n";
+            welcome += "🚀 `/list` : Hiện danh sách máy & điều khiển\n";
+            welcome += "➕ `/add Name MAC` : Thêm máy mới\n";
+            welcome += "🗑 `/delete Name` : Xóa máy khỏi danh sách\n";
+            welcome += "ℹ️ `/status` : Kiểm tra thông số hệ thống\n";
+            
+            if (enableWeb) welcome += "🌐 `/web` : Mở Dashboard điều khiển từ xa\n";
+            if (enableMQTT) welcome += "📡 `/mqtt` : Xem cấu hình MQTT\n";
+            
+            welcome += "\n💡 *Tips:* Bạn có thể bật máy từ xa (WOL) hoặc tắt máy (Shutdown) trực tiếp từ menu `/list`.";
             bot.sendMessage(chat_id, welcome, "Markdown");
         } 
         else if (text.startsWith("/add")) {
@@ -279,14 +308,24 @@ void setup() {
     topicCmd = "esp32_c3_wol/" + key + "/cmd";
     topicRes = "esp32_c3_wol/" + key + "/res";
 
-    // Cấu hình SSL
-    if (enableMQTT) secured_mqtt_client.setInsecure();
+    // Cấu hình MQTT Client dựa trên Port
+    if (enableMQTT) {
+        if (mqtt_port == 8883) {
+            secured_mqtt_client.setInsecure();
+            mqttClient.setClient(secured_mqtt_client);
+            Serial.println("🔒 MQTT: Using Secure connection (Port 8883)");
+        } else {
+            mqttClient.setClient(wifi_client);
+            Serial.println("🔓 MQTT: Using Non-secure connection (Port 1883)");
+        }
+    }
+    
     if (enableTelegram) secured_bot_client.setInsecure();
 
     if (enableMQTT) {
         mqttClient.setServer(mqtt_server, mqtt_port);
         mqttClient.setCallback(mqttCallback);
-        mqttClient.setBufferSize(2048); 
+        mqttClient.setBufferSize(4096); 
     }
     
     WOL.setRepeat(3, 100);

@@ -1,0 +1,50 @@
+name: Build PC Agent
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pc-agent/**'
+  workflow_dispatch: # Cho phép bấm nút build thủ công
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: pc_agent_windows.exe
+          - os: ubuntu-latest
+            artifact_name: pc_agent_linux
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r pc-agent/requirements.txt
+
+    - name: Build with PyInstaller (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        pyinstaller --onefile --noconsole --name pc_agent_windows pc-agent/src/agent.py
+
+    - name: Build with PyInstaller (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        pyinstaller --onefile --name pc_agent_linux pc-agent/src/agent.py
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: dist/*

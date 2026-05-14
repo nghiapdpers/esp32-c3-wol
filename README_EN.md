@@ -6,6 +6,7 @@ A powerful, secure, and professional Remote Wake-on-LAN system for the ESP32-C3.
 
 ### 1. Computer Control & Management
 - **Remote WoL:** Trigger Magic Packets to wake your PC via the Internet.
+- **Remote Shutdown (New):** Safely power off your PC via MQTT commands (Requires PC Agent).
 - **Device List Management:** Add, edit, or delete computers directly from the Web interface.
 - **Persistent Storage:** Device lists are stored in the ESP32's Flash memory (Preferences), ensuring data is kept after power cycles.
 
@@ -86,8 +87,30 @@ If you want to use third-party apps like *MQTT Dash* or *MQTT Panel*:
 5. **Command Structure (Payload):**
    - **Method 1 (Simplest):** Just publish the plain MAC address string (e.g., `00:1A:2B:3C:4D:5E`). The ESP32 will automatically detect it and trigger WOL.
    - **Method 2 (Advanced - JSON):** Used for full management features:
-     - Wake Up: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
-     - Sync List: `{"cmd":"sync"}`
+      - Wake Up: `{"cmd":"wol", "mac":"00:1A:...", "name":"PC-Name"}`
+      - Shutdown: `{"cmd":"shutdown", "mac":"00:1A:...", "name":"PC-Name"}`
+      - Sync List: `{"cmd":"sync"}`
+
+### Step 7: Install PC Agent (For Shutdown Feature)
+To shut down your computer remotely, the target PC must run a lightweight background script (Agent) to listen for commands from the ESP32.
+1. Navigate to the `pc-agent/` directory in this project.
+2. **Configuration:** The Agent has 3 ways to get settings (Server, Port, Secret Key):
+   - **Automatic:** When built within the project, it automatically syncs with `include/config.h`.
+   - **JSON Config:** Copy `agent_config.json.example` to `agent_config.json` in the same folder as the `.exe`:
+     ```json
+     {"mqtt_server": "broker.emqx.io", "mqtt_port": 8883, "secret_key": "your_key"}
+     ```
+   - **CLI Arguments:** Run the agent with `--mac AA:BB:CC...` to override the MAC address if you have multiple network cards.
+3. **Build:**
+   - **Automated (Recommended):** Every time you `push` to GitHub, **GitHub Actions** will automatically build and create downloadables (Artifacts) for both Windows and Linux in the **Actions** tab.
+   - **Manual:**
+     - Windows: Run `build_exe.bat`.
+     - Linux: Run `bash build_linux.sh`.
+4. **Deployment:**
+   - Copy `pc_agent.exe` (and `agent_config.json` if used) to the target PC and run it.
+   - *Note:* The Agent automatically enables **SSL/TLS** if you use port `8883`.
+   - *Advanced Tip:* To allow shutdown even from the **Lock Screen**, install the agent as a **Windows Service** using [NSSM](https://nssm.cc/).
+     - Command: `nssm install PCAgent "C:\path\to\pc_agent.exe"`
 
 ---
 
@@ -102,8 +125,9 @@ The project supports 3 simultaneous control methods:
 - **Tip:** Use the `/web` command on Telegram to get a "Magic Link" for auto-login.
 
 ### 2. Telegram Bot (Quick Access)
-- Type `/list` to see your computer list as interactive buttons.
-- Click a button to wake the PC.
+- Type `/list` to see your computer list as interactive buttons. Each device has two options:
+  - 🚀 **PC Name:** Trigger Wake-on-LAN.
+  - 🛑 **Off:** Trigger Remote Shutdown.
 - Use `/status` to check the ESP32 connection state.
 - Add new PCs remotely using: `/add PC_Name MAC_Address`.
 

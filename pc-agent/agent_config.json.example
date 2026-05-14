@@ -1,0 +1,5 @@
+{
+  "mqtt_server": "broker.emqx.io",
+  "mqtt_port": 8883,
+  "secret_key": "YOUR_SECRET_KEY_HERE"
+}
