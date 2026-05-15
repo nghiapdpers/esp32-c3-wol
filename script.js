@@ -17,7 +17,8 @@ let topicRes = '';
 let topicStatus = '';
 
 // --- State ---
-let onlineStatus = {}; // { macWithoutColons: true/false }
+let onlineStatus = {}; // { normalizedMac: lastSeenTimestamp }
+const STATUS_TIMEOUT = 90000; // 90 giây (khớp với ESP32)
 
 // --- DOM Elements ---
 const deviceList = document.getElementById('device-list');
@@ -55,10 +56,11 @@ function connectMQTT() {
         const payload = message.toString();
         
         // Xử lý Topic Status (Heartbeat từ Agent)
-        const statusMatch = topic.match(/status\/([0-9A-F]+)$/i);
+        // Regex hỗ trợ cả MAC sạch và MAC có dấu phân cách
+        const statusMatch = topic.match(/status\/([0-9A-F.:-]+)$/i);
         if (statusMatch) {
-            const mac = statusMatch[1].toUpperCase();
-            onlineStatus[mac] = (payload === 'online');
+            const mac = normalizeMac(statusMatch[1]);
+            onlineStatus[mac] = (payload === 'online') ? Date.now() : 0;
             updateDeviceStatusUI(mac);
             return;
         }
@@ -103,16 +105,16 @@ function renderDevices(devices) {
 
     devices.forEach(dev => {
         const nMac = normalizeMac(dev.mac);
-        const isOnline = onlineStatus[nMac] || false;
+        const active = (onlineStatus[nMac] && (Date.now() - onlineStatus[nMac] < STATUS_TIMEOUT));
         
         const card = document.createElement('div');
         card.className = 'device-card';
         card.setAttribute('data-mac', nMac);
         card.innerHTML = `
             <div class="device-header">
-                <div class="status-badge ${isOnline ? 'status-online' : 'status-offline'}">
+                <div class="status-badge ${active ? 'status-online' : 'status-offline'}">
                     <div class="status-dot"></div>
-                    <span>${isOnline ? 'Online' : 'Offline'}</span>
+                    <span>${active ? 'Online' : 'Offline'}</span>
                 </div>
             </div>
             <div class="device-info">
@@ -146,12 +148,19 @@ function renderDevices(devices) {
 function updateDeviceStatusUI(mac) {
     const card = document.querySelector(`.device-card[data-mac="${mac}"]`);
     if (card) {
-        const isOnline = onlineStatus[mac];
+        const active = (onlineStatus[mac] && (Date.now() - onlineStatus[mac] < STATUS_TIMEOUT));
         const badge = card.querySelector('.status-badge');
-        badge.className = `status-badge ${isOnline ? 'status-online' : 'status-offline'}`;
-        badge.querySelector('span').innerText = isOnline ? 'Online' : 'Offline';
+        badge.className = `status-badge ${active ? 'status-online' : 'status-offline'}`;
+        badge.querySelector('span').innerText = active ? 'Online' : 'Offline';
     }
 }
+
+// Tự động kiểm tra timeout trạng thái mỗi 10 giây
+setInterval(() => {
+    Object.keys(onlineStatus).forEach(mac => {
+        updateDeviceStatusUI(mac);
+    });
+}, 10000);
 
 function wakeDevice(mac, name, btn) {
     sendCmd({ cmd: 'wol', mac: mac, name: name });
