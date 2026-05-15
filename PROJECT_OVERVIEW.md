@@ -45,6 +45,7 @@ Hệ thống gồm 3 thành phần chính giao tiếp thời gian thực qua MQT
 ## 8. Changelog (newest first)
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-05-15 | Sửa lỗi không đồng nhất trạng thái PC: Chuẩn hóa MAC triệt để và thêm Heartbeat cho Agent | Antigravity |
 | 2026-05-15 | Đồng bộ thông báo Shutdown trên Telegram khi gửi lệnh từ Web Dashboard | Antigravity |
 | 2026-05-15 | Tích hợp hiển thị trạng thái Online/Offline của PC trên Telegram Bot (🟢/⚪) | Antigravity |
 | 2026-05-15 | Cập nhật hướng dẫn sử dụng SimpleServiceManager (SSM) thay thế NSSM cho PC Agent Service | Antigravity |

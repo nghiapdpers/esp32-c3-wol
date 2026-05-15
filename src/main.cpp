@@ -18,9 +18,15 @@ PubSubClient mqttClient;
 WiFiUDP udp;
 WakeOnLan WOL(udp);
 
-// Trạng thái Agent
-std::map<String, bool> onlineStatus;
+// Trạng thái Agent (Lưu thời điểm cuối cùng nhận tin nhắn từ Agent)
+std::map<String, unsigned long> lastSeen;
 String topicStatusPrefix = "";
+
+bool isDeviceOnline(String nMac) {
+    if (lastSeen.count(nMac) == 0) return false;
+    // Timeout sau 90 giây (gấp 3 lần chu kỳ heartbeat 30s của Agent)
+    return (millis() - lastSeen[nMac]) < 90000;
+}
 
 // Telegram
 WiFiClientSecure secured_bot_client; // Dùng SSL cho Bot
@@ -182,8 +188,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     // Xử lý status từ Agent
     if (topicStr.startsWith(topicStatusPrefix)) {
         String mac = topicStr.substring(topicStatusPrefix.length());
-        mac.toUpperCase();
-        onlineStatus[mac] = (message == "online");
+        String nMac = normalizeMac(mac); 
+        if (message == "online") {
+            lastSeen[nMac] = millis();
+        } else {
+            lastSeen[nMac] = 0; // Đánh dấu Offline ngay lập tức
+        }
         return;
     }
 
@@ -217,9 +227,9 @@ void sendPCListMenu() {
         String pcName = index.substring(start, end);
         String mac = preferences.getString(pcName.c_str(), "");
         
-        // Kiểm tra trạng thái online
+        // Kiểm tra trạng thái online bằng timestamp
         String nMac = normalizeMac(mac);
-        bool isOnline = onlineStatus.count(nMac) && onlineStatus[nMac];
+        bool isOnline = isDeviceOnline(nMac);
         String statusEmoji = isOnline ? "🟢" : "⚪";
         
         if (!first) keyboardJson += ",";
@@ -398,5 +408,12 @@ void loop() {
             numNewMessages = bot.getUpdates(bot.last_message_received + 1);
         }
         lastTimeBotRan = millis();
+    }
+
+    // Tự động khởi động lại định kỳ (7 ngày) để giải phóng bộ nhớ và duy trì độ ổn định
+    if (millis() > RESTART_INTERVAL) {
+        if (enableTelegram) bot.sendMessage(chat_id, "🔄 *Maintenance:* Hệ thống đang tự động khởi động lại định kỳ để tối ưu hiệu suất...", "Markdown");
+        delay(1000);
+        ESP.restart();
     }
 }
