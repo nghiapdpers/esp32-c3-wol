@@ -104,6 +104,7 @@ void executeShutdown(String mac, String source, String pcName = "", bool publish
                 doc["cmd"] = "shutdown";
                 doc["mac"] = mac;
                 doc["name"] = pcName;
+                doc["from"] = "esp32"; // Đánh dấu nguồn gửi từ ESP32
                 String payload;
                 serializeJson(doc, payload);
                 mqttClient.publish(topicCmd.c_str(), payload.c_str());
@@ -202,6 +203,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     if (!error) {
         String cmd = doc["cmd"].as<String>();
+        String from = doc["from"].as<String>();
+
+        // Bỏ qua nếu lệnh này do chính ESP32 gửi đi (tránh vòng lặp phản hồi)
+        if (from == "esp32") return;
+        
         if (cmd == "sync") publishDeviceList();
         else if (cmd == "wol") executeWoL(doc["mac"].as<String>(), "MQTT-App", doc["name"].as<String>());
         else if (cmd == "shutdown") { 
